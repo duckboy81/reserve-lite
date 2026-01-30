@@ -1,19 +1,25 @@
 import { API_CONFIG, DEFAULT_CONFIG } from '../config/constants';
 import { AuthService } from './AuthService';
+import { FlightSegment, FlightStatus } from '../types';
+
+interface CachedItem {
+  timestamp: number;
+  data: FlightStatus;
+}
 
 export const FlightService = {
-  getCachedStatus: (flightKey) => {
+  getCachedStatus: (flightKey: string): FlightStatus | null => {
     const cache = JSON.parse(localStorage.getItem('flight_status_cache') || '{}');
-    const cachedItem = cache[flightKey];
+    const cachedItem = cache[flightKey] as CachedItem | undefined;
     if (cachedItem && Date.now() - cachedItem.timestamp < API_CONFIG.CACHE_DURATION_MS) return cachedItem.data;
     return null;
   },
-  setCachedStatus: (flightKey, data) => {
+  setCachedStatus: (flightKey: string, data: FlightStatus) => {
     const cache = JSON.parse(localStorage.getItem('flight_status_cache') || '{}');
     cache[flightKey] = { timestamp: Date.now(), data: data };
     localStorage.setItem('flight_status_cache', JSON.stringify(cache));
   },
-  buildInfoPayload: (flightObj, dateStr) => {
+  buildInfoPayload: (flightObj: FlightSegment, dateStr: string) => {
     const match = flightObj.flight.match(/([A-Z0-9]{2})(\d+)/);
     if (!match) return null;
     return {
@@ -25,7 +31,7 @@ export const FlightService = {
       }]
     };
   },
-  fetchStatuses: async (flightsToFetch, dateStr) => {
+  fetchStatuses: async (flightsToFetch: FlightSegment[], dateStr: string): Promise<{ legs: FlightStatus[] }[] | null> => {
     const token = AuthService.getToken();
     if (!token) return null;
     const validPayloads = flightsToFetch.map(f => FlightService.buildInfoPayload(f, dateStr || '2026-01-29')).filter(p => p !== null);
@@ -40,7 +46,7 @@ export const FlightService = {
       return await response.json();
     } catch (e) { return null; }
   },
-  searchFlights: async (from, to, date) => {
+  searchFlights: async (from: string, to: string, date: string): Promise<{ flights: any[] }> => {
     const token = AuthService.getToken();
     if (!token) throw new Error("Not authenticated");
     const payload = {

@@ -2,15 +2,17 @@
 
 import { Config, TimelineRowData } from '../types';
 
-export const formatDate = (date: Date): string => date.toISOString().split('T')[0];
+export const formatDate = (date: Date): string => date.toISOString().split('T')[0] || '';
 
 export const addHours = (date: Date, h: number): Date => new Date(date.getTime() + h * 60 * 60 * 1000);
 
 export const moveItem = <T>(arr: T[], from: number, to: number): T[] => {
   if (to < 0 || to >= arr.length) return arr;
   const newArr = [...arr];
-  const [moved] = newArr.splice(from, 1);
-  newArr.splice(to, 0, moved);
+  const moved = newArr.splice(from, 1)[0];
+  if (moved !== undefined) {
+    newArr.splice(to, 0, moved);
+  }
   return newArr;
 };
 

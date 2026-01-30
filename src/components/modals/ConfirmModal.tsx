@@ -1,4 +1,3 @@
-import React from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 
 interface ConfirmModalProps {
@@ -7,17 +6,27 @@ interface ConfirmModalProps {
   message: string;
   onConfirm: () => void;
   onCancel: () => void;
+  confirmText?: string;
+  confirmColor?: string;
 }
 
-const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, title, message, onConfirm, onCancel }) => {
+const ConfirmModal: React.FC<ConfirmModalProps> = ({ 
+  isOpen, 
+  title, 
+  message, 
+  onConfirm, 
+  onCancel,
+  confirmText = 'Confirm',
+  confirmColor = 'bg-red-600'
+}) => {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm flex flex-col overflow-hidden">
         <div className="p-4 border-b flex justify-between items-center bg-gray-50">
-          <h3 className="font-bold text-lg flex items-center gap-2 text-red-600">
-            <AlertTriangle size={20} />
+          <h3 className="font-bold text-lg flex items-center gap-2 text-gray-800">
+            <AlertTriangle size={20} className={confirmColor === 'bg-red-600' ? 'text-red-600' : 'text-green-600'} />
             {title}
           </h3>
           <button onClick={onCancel}>
@@ -38,9 +47,9 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({ isOpen, title, message, onC
           </button>
           <button 
             onClick={onConfirm}
-            className="px-4 py-2 font-bold bg-red-600 text-white rounded hover:bg-red-700 shadow-md transition-colors"
+            className={`px-4 py-2 font-bold ${confirmColor} text-white rounded hover:opacity-90 shadow-md transition-colors`}
           >
-            Confirm
+            {confirmText}
           </button>
         </div>
       </div>

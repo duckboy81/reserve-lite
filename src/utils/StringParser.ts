@@ -5,7 +5,7 @@ export const StringParser = {
   GROUND_REGEX: /-\s*([A-Z]{3})\+(\d+(\.\d+)?)Huber/i,
   HUB_SPLIT_REGEX: /\s+-\s+([A-Z]{3})\s+-\s+/,
 
-  parseSegmentString: (segStr: string | null): FlightSegment | null => {
+  parseSegmentString: (segStr: string | null | undefined): FlightSegment | null => {
     if (!segStr) return null;
     const cleanStr = segStr.trim();
     let ground: FlightSegment['ground'] = null;
@@ -13,17 +13,17 @@ export const StringParser = {
     const groundMatch = cleanStr.match(StringParser.GROUND_REGEX);
     if (groundMatch) {
       flightPart = cleanStr.replace(groundMatch[0], '').trim();
-      ground = { hub: groundMatch[1], duration: `${groundMatch[2]}h`, mode: 'Uber' };
+      ground = { hub: groundMatch[1] || 'UNK', duration: `${groundMatch[2] || '0'}h`, mode: 'Uber' };
     }
     const flightMatch = flightPart.match(StringParser.FLIGHT_REGEX);
     if (flightMatch) {
-      const depRaw = flightMatch[1];
-      const arrRaw = flightMatch[2];
-      const flightNum = flightMatch[3];
+      const depRaw = flightMatch[1] || '';
+      const arrRaw = flightMatch[2] || '';
+      const flightNum = flightMatch[3] || 'UNK';
       return {
         flight: flightNum,
-        dep: `${depRaw.substring(0,2)}:${depRaw.substring(2,4)}`,
-        arr: `${arrRaw.substring(0,2)}:${arrRaw.substring(2,4)}`,
+        dep: depRaw.length >= 4 ? `${depRaw.substring(0,2)}:${depRaw.substring(2,4)}` : '00:00',
+        arr: arrRaw.length >= 4 ? `${arrRaw.substring(0,2)}:${arrRaw.substring(2,4)}` : '00:00',
         status: 'Unknown',
         ground
       };
@@ -31,12 +31,12 @@ export const StringParser = {
     return null;
   },
 
-  processRowOptions: (optionStrings: string[]): Option[] => {
+  processRowOptions: (optionStrings: (string | undefined)[]): Option[] => {
     const finalOptions: Option[] = [];
     const parseSelfContained = (str: string): Option | null => {
       const match = str.match(StringParser.HUB_SPLIT_REGEX);
       if (match) {
-        const hub = match[1];
+        const hub = match[1] || 'UNK';
         const parts = str.split(match[0]);
         const inboundSeg = StringParser.parseSegmentString(parts[0]);
         const outboundSeg = StringParser.parseSegmentString(parts[1]);
@@ -75,13 +75,16 @@ export const StringParser = {
     const parsedData: ScheduleData = {};
     Object.keys(csvDataMap).forEach(airport => {
       const text = csvDataMap[airport];
+      if (!text) return;
       const lines = text.trim().split('\n');
       const airportRows: RowData[] = [];
       for (let i = 1; i < lines.length; i++) {
-        const cols = lines[i].split(',');
+        const line = lines[i];
+        if (!line) continue;
+        const cols = line.split(',');
         if (cols.length < 4) continue;
-        const date = cols[0];
-        const callET = cols[1].substring(0, 5);
+        const date = cols[0] || '';
+        const callET = (cols[1] || '').substring(0, 5);
         const options = StringParser.processRowOptions(cols.slice(3));
         if (options.length > 0) {
           const key = `${date}T${callET}`;

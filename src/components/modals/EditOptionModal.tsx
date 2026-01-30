@@ -3,22 +3,32 @@ import { Edit3, X, Plane, Split, Plus } from 'lucide-react';
 import FlightInput from '../inputs/FlightInput';
 import { COMMON_HUBS } from '../../config/constants';
 import { moveItem } from '../../utils/dateUtil';
+import { Option, Config, FlightSegment } from '../../types';
 
-const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, config }) => {
-  const [strategy, setStrategy] = useState('direct'); // 'direct' | 'hub'
+interface EditOptionModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (option: Option) => void;
+  initialOption: Option | null;
+  dateContext: string;
+  config: Config;
+}
+
+const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSave, initialOption, dateContext, config }) => {
+  const [strategy, setStrategy] = useState<'direct' | 'hub'>('direct');
   const [hub, setHub] = useState('');
   // Direct Segments
-  const [segments, setSegments] = useState([]);
+  const [segments, setSegments] = useState<FlightSegment[]>([]);
   // Hub Strategy Parts
-  const [inbounds, setInbounds] = useState([]);
-  const [outbounds, setOutbounds] = useState([]);
+  const [inbounds, setInbounds] = useState<FlightSegment[]>([]);
+  const [outbounds, setOutbounds] = useState<FlightSegment[]>([]);
 
   useEffect(() => {
     if (isOpen && initialOption) {
       if (initialOption.type === 'hub-strategy') {
         setStrategy('hub');
         setHub(initialOption.hub || '');
-        setInbounds(Array.isArray(initialOption.inbound) ? initialOption.inbound : [initialOption.inbound]);
+        setInbounds(Array.isArray(initialOption.inbound) ? initialOption.inbound : (initialOption.inbound ? [initialOption.inbound] : []));
         setOutbounds(initialOption.outbound || []);
       } else {
         setStrategy('direct');
@@ -27,18 +37,19 @@ const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, 
     } else if (isOpen) {
       setStrategy('direct');
       setHub('');
-      setSegments([{ flight: '', dep: '', arr: '', depAirport: config.homeBase, arrAirport: config.reserveBase }]);
-      setInbounds([{ flight: '', dep: '', arr: '', depAirport: config.homeBase, arrAirport: '' }]);
-      setOutbounds([{ flight: '', dep: '', arr: '', depAirport: '', arrAirport: config.reserveBase, isPrimary: true }]);
+      setSegments([{ flight: '', dep: '', arr: '', status: '', depAirport: config.homeBase, arrAirport: config.reserveBase }]);
+      setInbounds([{ flight: '', dep: '', arr: '', status: '', depAirport: config.homeBase, arrAirport: '' }]);
+      setOutbounds([{ flight: '', dep: '', arr: '', status: '', depAirport: '', arrAirport: config.reserveBase, isPrimary: true }]);
     }
   }, [isOpen, initialOption, config]);
 
   const handleSave = () => {
-    let finalOpt;
+    let finalOpt: Option;
     if (strategy === 'direct') {
       const cleanSegs = segments.filter(s => s.flight);
       if (cleanSegs.length === 0) return;
       const last = cleanSegs[cleanSegs.length - 1];
+      if (!last) return;
       finalOpt = {
         type: 'direct',
         segments: cleanSegs,
@@ -95,11 +106,15 @@ const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, 
                   onChange={(val) => { const n = [...segments]; n[i] = val; setSegments(n); }}
                   showRemove={segments.length > 1}
                   onRemove={() => { const n = segments.filter((_, idx) => idx !== i); setSegments(n); }}
+                  onMoveUp={() => setSegments(moveItem(segments, i, i - 1))}
+                  onMoveDown={() => setSegments(moveItem(segments, i, i + 1))}
+                  isFirst={i === 0}
+                  isLast={i === segments.length - 1}
                   config={config}
                   dateContext={dateContext}
                 />
               ))}
-              <button onClick={() => setSegments([...segments, { flight: '', dep: '', arr: '' }])} className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 font-bold hover:border-indigo-400 hover:text-indigo-500 transition-colors">
+              <button onClick={() => setSegments([...segments, { flight: '', dep: '', arr: '', status: '' }])} className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 font-bold hover:border-indigo-400 hover:text-indigo-500 transition-colors">
                 + Add Connecting Leg
               </button>
             </div>
@@ -123,7 +138,6 @@ const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, 
               <div>
                 <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2"><Plane size={14} /> Inbound Legs (To Hub)</h4>
                 <div className="pl-6 border-l-2 border-gray-200 ml-1">
-                  {/* DUPLICATE CODE: This mapping logic is very similar to the outbound mapping below. Consider creating a <FlightList> component. */}
                   {inbounds.map((seg, i) => (
                     <FlightInput
                       key={i}
@@ -143,7 +157,7 @@ const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, 
                       allowGround={false}
                     />
                   ))}
-                  <button onClick={() => setInbounds([...inbounds, { flight: '', dep: '', arr: '' }])} className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline">
+                  <button onClick={() => setInbounds([...inbounds, { flight: '', dep: '', arr: '', status: '' }])} className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline">
                     <Plus size={14} /> Add Inbound Option
                   </button>
                 </div>
@@ -152,7 +166,6 @@ const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, 
               <div>
                 <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2"><Split size={14} /> Outbound Options (From Hub)</h4>
                 <div className="pl-6 border-l-2 border-gray-200 ml-1">
-                  {/* DUPLICATE CODE: This mapping logic is very similar to the inbound mapping above. Consider creating a <FlightList> component. */}
                   {outbounds.map((seg, i) => (
                     <FlightInput
                       key={i}
@@ -172,7 +185,7 @@ const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, 
                       allowGround={true}
                     />
                   ))}
-                  <button onClick={() => setOutbounds([...outbounds, { flight: '', dep: '', arr: '', isPrimary: false }])} className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline">
+                  <button onClick={() => setOutbounds([...outbounds, { flight: '', dep: '', arr: '', status: '', isPrimary: false }])} className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline">
                     <Plus size={14} /> Add Alternative Option
                   </button>
                 </div>

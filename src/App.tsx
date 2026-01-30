@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Plane, RefreshCw, LogOut, Edit3, Save, Undo, Redo, X, Calendar, Settings } from 'lucide-react';
 import { AuthService } from './services/AuthService';
 import { FlightService } from './services/FlightService';
@@ -6,7 +6,7 @@ import { StringParser } from './utils/StringParser';
 import { generateTimeline } from './utils/dateUtil';
 import { DEFAULT_CONFIG, SEED_CSV_DATA } from './config/constants';
 
-import { ReserveBlock, ScheduleData, Config, User, Option, RowData, FlightStatus, EditContext } from './types';
+import { ReserveBlock, ScheduleData, Config, User, Option, RowData, FlightStatus, EditContext, FlightSegment, TimelineRowData } from './types';
 
 import LoginScreen from './screens/LoginScreen';
 import TimelineRow from './components/timeline/TimelineRow';
@@ -97,41 +97,46 @@ export default function App() {
     setConfirmModal({ isOpen: false, type: null });
   };
 
-  const updateStaging = (newData) => {
-    setHistory([...history, stagingData]);
+  const updateStaging = (newData: ScheduleData) => {
+    if (stagingData) setHistory([...history, stagingData]);
     setFuture([]);
     setStagingData(newData);
   };
 
   const handleUndo = () => {
-    if(history.length === 0) return;
+    if(history.length === 0 || !stagingData) return;
     const prev = history[history.length - 1];
-    setFuture([stagingData, ...future]);
-    setHistory(history.slice(0, -1));
-    setStagingData(prev);
+    if (prev) {
+      setFuture([stagingData, ...future]);
+      setHistory(history.slice(0, -1));
+      setStagingData(prev);
+    }
   };
 
   const handleRedo = () => {
-    if(future.length === 0) return;
+    if(future.length === 0 || !stagingData) return;
     const next = future[0];
-    setHistory([...history, stagingData]);
-    setFuture(future.slice(1));
-    setStagingData(next);
+    if (next) {
+      setHistory([...history, stagingData]);
+      setFuture(future.slice(1));
+      setStagingData(next);
+    }
   };
 
   // --- DATA MANIPULATION ---
 
-  const handleAddOption = (rowId, dateContext) => {
+  const handleAddOption = (rowId: string, dateContext: string) => {
     setEditContext({ rowId, index: null, option: null, dateContext });
     setModals({...modals, edit: true});
   };
 
-  const handleEditOption = (rowId, index, option) => {
-    setEditContext({ rowId, index, option });
+  const handleEditOption = (rowId: string, index: number, option: Option, dateContext: string) => {
+    setEditContext({ rowId, index, option, dateContext });
     setModals({...modals, edit: true});
   };
 
-  const saveOptionToStaging = (option) => {
+  const saveOptionToStaging = (option: Option) => {
+    if (!editContext) return;
     const { rowId, index } = editContext;
     let currentData = stagingData;
     if (!isEditMode || !currentData) {
@@ -141,9 +146,9 @@ export default function App() {
 
     const newData = JSON.parse(JSON.stringify(currentData));
     if (!newData[airport]) newData[airport] = [];
-    let row = newData[airport].find(r => r.key === rowId);
+    let row = newData[airport].find((r: RowData) => r.key === rowId);
     if (!row) {
-      row = { key: rowId, options: [] };
+      row = { key: rowId, date: editContext.dateContext || '', callET: rowId.split('T')[1] || '', options: [] };
       newData[airport].push(row);
     }
 
@@ -172,27 +177,27 @@ export default function App() {
 
   const reorderOptions = (rowId: string, from: number, to: number) => {
     modifyOptions(rowId, (options) => {
-      const [moved] = options.splice(from, 1);
-      options.splice(to, 0, moved);
+      const moved = options.splice(from, 1)[0];
+      if (moved) options.splice(to, 0, moved);
     });
   };
 
   // --- BLOCK MANIPULATION ---
-  const handleBlockAdd = (b) => {
-    const newB = { ...b, id: Date.now().toString() };
+  const handleBlockAdd = (b: Omit<ReserveBlock, 'id'>) => {
+    const newB: ReserveBlock = { ...b, id: Date.now().toString() };
     const next = [...reserveBlocks, newB];
     setReserveBlocks(next);
     localStorage.setItem('reserve_lite_blocks', JSON.stringify(next));
     if(next.length===1) setActiveBlockId(newB.id);
   };
 
-  const handleBlockEdit = (id, b) => {
+  const handleBlockEdit = (id: string, b: Partial<ReserveBlock>) => {
     const next = reserveBlocks.map(blk => blk.id === id ? { ...blk, ...b } : blk);
     setReserveBlocks(next);
     localStorage.setItem('reserve_lite_blocks', JSON.stringify(next));
   };
 
-  const handleBlockDelete = (id) => {
+  const handleBlockDelete = (id: string) => {
     const next = reserveBlocks.filter(b => b.id !== id);
     setReserveBlocks(next);
     localStorage.setItem('reserve_lite_blocks', JSON.stringify(next));
@@ -202,7 +207,7 @@ export default function App() {
   // --- REFRESH ---
   const handleGlobalRefresh = async () => {
     setLoading(true);
-    let allFlights = [];
+    let allFlights: FlightSegment[] = [];
     const sourceData = isEditMode && stagingData ? stagingData : scheduleData;
 
     Object.values(sourceData).forEach(airportRows => {
@@ -217,10 +222,10 @@ export default function App() {
 
     const uniqueFlights = [...new Set(allFlights.map(f => f.flight))].map(fNum => {
       return allFlights.find(obj => obj.flight === fNum);
-    });
+    }).filter((f): f is FlightSegment => !!f);
 
     const newStatuses = { ...flightStatuses };
-    const flightsToFetch = [];
+    const flightsToFetch: FlightSegment[] = [];
 
     uniqueFlights.forEach(f => {
       const cached = FlightService.getCachedStatus(f.flight);
@@ -230,16 +235,19 @@ export default function App() {
 
     if (flightsToFetch.length > 0) {
       const chunkSize = 15;
+      const today = new Date().toISOString().split('T')[0] || '';
       for (let i = 0; i < flightsToFetch.length; i += chunkSize) {
         const batch = flightsToFetch.slice(i, i + chunkSize);
-        const apiResults = await FlightService.fetchStatuses(batch);
+        const apiResults = await FlightService.fetchStatuses(batch, today);
         if (apiResults) {
-          apiResults.forEach(res => {
+          apiResults.forEach((res) => {
             if (res.legs && res.legs.length > 0) {
               const leg = res.legs[0];
-              const key = `${leg.carrierCodeIATA}${leg.aircraftIdentification.flightNumber}`;
-              FlightService.setCachedStatus(key, leg);
-              newStatuses[key] = leg;
+              if (leg) {
+                const key = `${leg.carrierCodeIATA}${leg.aircraftIdentification.flightNumber}`;
+                FlightService.setCachedStatus(key, leg);
+                newStatuses[key] = leg;
+              }
             }
           });
         }
@@ -264,18 +272,20 @@ export default function App() {
 
   const activeData = (isEditMode && stagingData) ? stagingData : scheduleData;
 
-  let timelineRows = [];
+  let timelineRows: TimelineRowData[] = [];
   const activeBlock = reserveBlocks.find(b => b.id === activeBlockId);
 
   if (activeBlock) {
-    const sDate = activeBlock.start.split('T')[0];
-    const eDate = activeBlock.end.split('T')[0];
-    timelineRows = generateTimeline(sDate, eDate, config);
+    const sDate = activeBlock.start.split('T')[0] || '';
+    const eDate = activeBlock.end.split('T')[0] || '';
+    if (sDate && eDate) {
+      timelineRows = generateTimeline(sDate, eDate, config);
 
-    timelineRows.forEach(row => {
-      const storedRow = activeData[airport]?.find(r => r.key === row.key);
-      if (storedRow) row.options = storedRow.options;
-    });
+      timelineRows.forEach(row => {
+        const storedRow = activeData[airport]?.find((r: RowData) => r.key === row.key);
+        if (storedRow) row.options = storedRow.options;
+      });
+    }
   }
 
   if (!user) return <LoginScreen onLogin={setUser} />;
@@ -338,11 +348,11 @@ export default function App() {
                 <>
                   <button onClick={handleUndo} disabled={history.length===0} className="p-2 text-gray-500 disabled:opacity-30 hover:bg-gray-200 rounded-full"><Undo size={16}/></button>
                   <button onClick={handleRedo} disabled={future.length===0} className="p-2 text-gray-500 disabled:opacity-30 hover:bg-gray-200 rounded-full"><Redo size={16}/></button>
-                  <div className="h-4 w-[1px] bg-gray-300 mx-1"></div>
+                  <div className="h-4 w-px bg-gray-300 mx-1"></div>
                   <button onClick={() => setConfirmModal({ isOpen: true, type: 'discard' })} className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 text-gray-600 rounded-full font-bold text-xs hover:bg-gray-300">
                     Discard
                   </button>
-                  <button onClick={() => setConfirmModal({ isOpen: true, type: 'save' })} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-full font-bold text-xs hover:bg-green-700 shadow-sm">
+                  <button onClick={() => setConfirmModal({ isOpen: true, type: 'commit' })} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-full font-bold text-xs hover:bg-green-700 shadow-sm">
                     <Save size={14} /> Save
                   </button>
                 </>
@@ -355,12 +365,11 @@ export default function App() {
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto min-h-[500px] border-x border-gray-100 shadow-sm bg-white">
-        {timelineRows.length > 0 ? timelineRows.map((row, index) => (
+      <main className="max-w-6xl mx-auto min-h-125 border-x border-gray-100 shadow-sm bg-white">
+        {timelineRows.length > 0 ? timelineRows.map((row) => (
           <TimelineRow
             key={row.key}
             row={row}
-            index={index}
             isEdit={isEditMode}
             onAddOption={handleAddOption}
             onDeleteOption={deleteOption}
@@ -381,8 +390,8 @@ export default function App() {
         isOpen={modals.edit}
         onClose={() => setModals({...modals, edit: false})}
         onSave={saveOptionToStaging}
-        initialOption={editContext?.option}
-        dateContext={editContext?.dateContext}
+        initialOption={editContext ? editContext.option : null}
+        dateContext={editContext ? editContext.dateContext : ''}
         config={config}
       />
 
@@ -390,7 +399,7 @@ export default function App() {
         isOpen={modals.config}
         onClose={() => setModals({...modals, config: false})}
         config={config}
-        onSave={(c) => { setConfig(c); localStorage.setItem('reserve_lite_config', JSON.stringify(c)); setModals({...modals, config: false}); }}
+        onSave={(c: Config) => { setConfig(c); localStorage.setItem('reserve_lite_config', JSON.stringify(c)); setModals({...modals, config: false}); }}
       />
 
       <BlockManager
@@ -406,12 +415,12 @@ export default function App() {
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}
-        title={confirmModal.type === 'save' ? 'Save Changes?' : 'Discard Changes?'}
-        message={confirmModal.type === 'save' ? 'This will overwrite your existing schedule. Are you sure?' : 'All unsaved changes in this session will be lost. Are you sure?'}
-        onConfirm={confirmModal.type === 'save' ? executeCommit : executeDiscard}
+        title={confirmModal.type === 'commit' ? 'Save Changes?' : 'Discard Changes?'}
+        message={confirmModal.type === 'commit' ? 'This will overwrite your existing schedule. Are you sure?' : 'All unsaved changes in this session will be lost. Are you sure?'}
+        onConfirm={confirmModal.type === 'commit' ? executeCommit : executeDiscard}
         onCancel={() => setConfirmModal({ isOpen: false, type: null })}
-        confirmText={confirmModal.type === 'save' ? 'Save' : 'Discard'}
-        confirmColor={confirmModal.type === 'save' ? 'bg-green-600' : 'bg-red-600'}
+        confirmText={confirmModal.type === 'commit' ? 'Save' : 'Discard'}
+        confirmColor={confirmModal.type === 'commit' ? 'bg-green-600' : 'bg-red-600'}
       />
 
     </div>

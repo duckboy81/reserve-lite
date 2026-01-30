@@ -1,18 +1,39 @@
 import React, { useState } from 'react';
 import { Plus, CheckCircle, Pencil, Trash2 } from 'lucide-react';
+import { ReserveBlock } from '../../types';
 
-const BlockManager = ({ isOpen, onClose, blocks, onAdd, onEdit, onDelete, onSelect, activeId }) => {
+interface BlockManagerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  blocks: ReserveBlock[];
+  onAdd: (block: Omit<ReserveBlock, 'id'>) => void;
+  onEdit: (id: string, block: Partial<ReserveBlock>) => void;
+  onDelete: (id: string) => void;
+  onSelect: (id: string) => void;
+  activeId: string | null;
+}
+
+const BlockManager: React.FC<BlockManagerProps> = ({
+  isOpen,
+  onClose,
+  blocks,
+  onAdd,
+  onEdit,
+  onDelete,
+  onSelect,
+  activeId
+}) => {
   const [start, setStart] = useState('');
   const [end, setEnd] = useState('');
   const [isEditing, setIsEditing] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  const [editId, setEditId] = useState(null);
+  const [editId, setEditId] = useState<string | null>(null);
 
   const handleSave = () => {
     if (!start || !end) return;
     const fullStart = `${start}T10:00:00`;
     const fullEnd = `${end}T06:00:00`;
-    if (isEditing) onEdit(editId, { start: fullStart, end: fullEnd });
+    if (isEditing && editId) onEdit(editId, { start: fullStart, end: fullEnd });
     else onAdd({ start: fullStart, end: fullEnd });
     setShowForm(false); setIsEditing(false); setStart(''); setEnd('');
   };
@@ -44,7 +65,7 @@ const BlockManager = ({ isOpen, onClose, blocks, onAdd, onEdit, onDelete, onSele
                 <div className="text-xs text-gray-500">{new Date(b.start).toLocaleDateString()} - {new Date(b.end).toLocaleDateString()}</div>
               </div>
               <div className="flex items-center gap-2">
-                <button onClick={() => { setStart(b.start.split('T')[0]); setEnd(b.end.split('T')[0]); setEditId(b.id); setIsEditing(true); setShowForm(true); }} className="text-gray-400 hover:text-indigo-600 p-1"><Pencil size={14}/></button>
+                <button onClick={() => { setStart(b.start?.split('T')[0] || ''); setEnd(b.end?.split('T')[0] || ''); setEditId(b.id); setIsEditing(true); setShowForm(true); }} className="text-gray-400 hover:text-indigo-600 p-1"><Pencil size={14}/></button>
                 <button onClick={() => onDelete(b.id)} className="text-red-300 hover:text-red-500 p-1"><Trash2 size={14}/></button>
               </div>
             </div>

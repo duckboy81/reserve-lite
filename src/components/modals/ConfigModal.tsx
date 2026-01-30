@@ -1,9 +1,17 @@
 import React, { useState } from 'react';
 import { Settings } from 'lucide-react';
 import { TIMEZONES } from '../../config/constants';
+import { Config } from '../../types';
 
-const ConfigModal = ({ isOpen, onClose, config, onSave }) => {
-  const [localConfig, setLocalConfig] = useState(config);
+interface ConfigModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  config: Config;
+  onSave: (config: Config) => void;
+}
+
+const ConfigModal: React.FC<ConfigModalProps> = ({ isOpen, onClose, config, onSave }) => {
+  const [localConfig, setLocalConfig] = useState<Config>(config);
   if(!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">

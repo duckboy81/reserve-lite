@@ -2,11 +2,44 @@ import React, { useState, useEffect } from 'react';
 import { ArrowUp, ArrowDown, Search, X } from 'lucide-react';
 import { FlightService } from '../../services/FlightService';
 import { RecentAirports } from '../../services/StorageService';
+import { FlightSegment, Config, SearchResult } from '../../types';
 
-const FlightInput = ({ label, value, onChange, onRemove, showRemove, config, dateContext, onMoveUp, onMoveDown, isFirst, isLast, defaultSearchFrom, defaultSearchTo, allowGround = true }) => {
+interface FlightInputProps {
+  label: string;
+  value: FlightSegment;
+  onChange: (value: FlightSegment) => void;
+  onRemove: () => void;
+  showRemove: boolean;
+  config: Config;
+  dateContext: string;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
+  isFirst?: boolean;
+  isLast?: boolean;
+  defaultSearchFrom?: string;
+  defaultSearchTo?: string;
+  allowGround?: boolean;
+}
+
+const FlightInput: React.FC<FlightInputProps> = ({ 
+  label, 
+  value, 
+  onChange, 
+  onRemove, 
+  showRemove, 
+  config, 
+  dateContext, 
+  onMoveUp, 
+  onMoveDown, 
+  isFirst, 
+  isLast, 
+  defaultSearchFrom, 
+  defaultSearchTo, 
+  allowGround = true 
+}) => {
   // value = { flight: 'DL123', dep: 'HH:mm', arr: 'HH:mm', depAirport: 'ATL', arrAirport: 'LAX', ground: { duration: '1.5', hub: 'DTW' } }
   const [isSearching, setIsSearching] = useState(false);
-  const [searchResults, setSearchResults] = useState(null);
+  const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
   const [searchParams, setSearchParams] = useState({
     from: value?.depAirport || defaultSearchFrom || config.homeBase,
     to: value?.arrAirport || defaultSearchTo || config.reserveBase,
@@ -15,7 +48,7 @@ const FlightInput = ({ label, value, onChange, onRemove, showRemove, config, dat
   const [showSearch, setShowSearch] = useState(false);
   const [showGround, setShowGround] = useState(!!value?.ground);
 
-  const [recentAirports, setRecentAirports] = useState([]);
+  const [recentAirports, setRecentAirports] = useState<string[]>([]);
   const [showRecentFrom, setShowRecentFrom] = useState(false);
   const [showRecentTo, setShowRecentTo] = useState(false);
 
@@ -35,7 +68,7 @@ const FlightInput = ({ label, value, onChange, onRemove, showRemove, config, dat
       RecentAirports.add(searchParams.from);
       RecentAirports.add(searchParams.to);
       setRecentAirports(RecentAirports.get());
-      const res = await FlightService.searchFlights(searchParams.from, searchParams.to, searchParams.date);
+      const res = await FlightService.searchFlights(searchParams.from, searchParams.to, searchParams.date || '');
       setSearchResults(res.flights || []);
     } catch (e) {
       console.error(e);
@@ -45,24 +78,26 @@ const FlightInput = ({ label, value, onChange, onRemove, showRemove, config, dat
     }
   };
 
-  const selectFlight = (f) => {
+  const selectFlight = (f: SearchResult) => {
     const leg = f.legs[0];
-    const formattedDep = leg.departure?.scheduledDate ? leg.departure.scheduledDate.substring(11, 16) : '';
-    const formattedArr = leg.arrival?.scheduledDate ? leg.arrival.scheduledDate.substring(11, 16) : '';
+    if (!leg) return;
+    const formattedDep = leg.departureTime?.scheduled ? leg.departureTime.scheduled.substring(11, 16) : '';
+    const formattedArr = leg.arrivalTime?.scheduled ? leg.arrivalTime.scheduled.substring(11, 16) : '';
 
-    const newData = {
+    const newData: FlightSegment = {
       ...value,
       flight: `${leg.carrierCodeIATA}${leg.aircraftIdentification.flightNumber}`,
       dep: formattedDep,
       arr: formattedArr,
-      depAirport: leg.departureAirportCode,
-      arrAirport: leg.arrivalAirportCode
+      depAirport: leg.departureAirport?.iata,
+      arrAirport: leg.arrivalAirport?.iata,
+      status: 'Unknown'
     };
     onChange(newData);
     setShowSearch(false);
   };
 
-  const updateField = (field, val) => {
+  const updateField = <K extends keyof FlightSegment>(field: K, val: FlightSegment[K]) => {
     onChange({ ...value, [field]: val });
   };
 
@@ -71,18 +106,18 @@ const FlightInput = ({ label, value, onChange, onRemove, showRemove, config, dat
       const { ground, ...rest } = value;
       onChange(rest);
     } else {
-      onChange({ ...value, ground: { duration: '1.0', hub: value.arrAirport || 'UNK' } });
+      onChange({ ...value, ground: { duration: '1.0', hub: value.arrAirport || 'UNK', mode: 'Uber' } });
     }
     setShowGround(!showGround);
   };
 
-  const handleFocus = (type) => {
+  const handleFocus = (type: 'from' | 'to') => {
     setRecentAirports(RecentAirports.get());
     if (type === 'from') setShowRecentFrom(true);
     if (type === 'to') setShowRecentTo(true);
   };
 
-  const handleBlur = (type) => {
+  const handleBlur = (type: 'from' | 'to') => {
     setTimeout(() => {
       if (type === 'from') setShowRecentFrom(false);
       if (type === 'to') setShowRecentTo(false);

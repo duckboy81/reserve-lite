@@ -1,18 +1,46 @@
 import React from 'react';
 import { ArrowRight, Split, GripVertical, Trash2 } from 'lucide-react';
 import FlightPill from './FlightPill';
+import { Option, FlightStatus } from '../../types';
 
-const FlightOptionCard = ({ option, index, isEdit, onDelete, onEdit, flightStatuses = {}, onDragStart, onDragOver, onDrop }) => {
-  const getPrimaryArr = (opt) => {
-    if (opt.type === 'hub-strategy') {
+interface FlightOptionCardProps {
+  option: Option;
+  index: number;
+  isEdit: boolean;
+  onDelete: (index: number) => void;
+  onEdit: (option: Option) => void;
+  flightStatuses: Record<string, FlightStatus>;
+  onDragStart: (e: React.DragEvent, index: number) => void;
+  onDragOver: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent, index: number) => void;
+}
+
+const FlightOptionCard: React.FC<FlightOptionCardProps> = ({ 
+  option, 
+  index, 
+  isEdit, 
+  onDelete, 
+  onEdit, 
+  flightStatuses = {}, 
+  onDragStart, 
+  onDragOver, 
+  onDrop 
+}) => {
+  const getPrimaryArr = (opt: Option) => {
+    if (opt.type === 'hub-strategy' && opt.outbound) {
       const p = opt.outbound.find(o => o.isPrimary);
       return p ? p.arr : 'N/A';
     }
-    const s = opt.segments[opt.segments.length-1];
-    return s ? s.arr : 'N/A';
+    if (opt.segments && opt.segments.length > 0) {
+      const s = opt.segments[opt.segments.length - 1];
+      return s ? s.arr : 'N/A';
+    }
+    return 'N/A';
   };
   const primaryArr = getPrimaryArr(option);
-  const inbounds = Array.isArray(option.inbound) ? option.inbound : [option.inbound];
+  const inbounds = option.type === 'hub-strategy' 
+    ? (Array.isArray(option.inbound) ? option.inbound : (option.inbound ? [option.inbound] : []))
+    : [];
 
   return (
     <div
@@ -45,7 +73,7 @@ const FlightOptionCard = ({ option, index, isEdit, onDelete, onEdit, flightStatu
             </div>
             <div className="border-t border-dashed border-gray-200 w-full my-1"></div>
             <div className="flex flex-col gap-2 pt-1">
-              {option.outbound.map((f, i) => (
+              {option.outbound?.map((f, i) => (
                 <div key={i} className="flex items-center gap-2">
                         <span className={`text-[9px] font-bold px-1.5 rounded uppercase tracking-wider ${f.isPrimary ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400'}`}>
                             {f.isPrimary ? 'Primary' : `Alt ${i}`}
@@ -60,7 +88,7 @@ const FlightOptionCard = ({ option, index, isEdit, onDelete, onEdit, flightStatu
           </div>
         ) : (
           <div className="flex flex-wrap gap-2 items-center py-2">
-            {option.segments.map((seg, idx) => (
+            {option.segments?.map((seg, idx) => (
               <React.Fragment key={idx}>
                 {idx > 0 && <ArrowRight size={10} className="text-gray-300"/>}
                 <FlightPill f={seg} statusData={flightStatuses[seg.flight]} />

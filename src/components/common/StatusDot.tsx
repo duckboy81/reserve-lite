@@ -1,12 +1,21 @@
 import React from 'react';
 
-const StatusDot = ({ status, details }) => {
+interface StatusDotProps {
+  status?: string;
+  details?: {
+    scheduledDate: string;
+    estimatedDate?: string;
+    actualDate?: string;
+  };
+}
+
+const StatusDot: React.FC<StatusDotProps> = ({ status, details }) => {
   let color = 'bg-gray-300';
   let title = status || 'Unknown';
   if (status === 'Cancelled') color = 'bg-red-500';
   else if (details && (details.estimatedDate || details.actualDate)) {
-    const sched = new Date(details.scheduledDate);
-    const est = new Date(details.estimatedDate || details.actualDate);
+    const sched = new Date(details.scheduledDate).getTime();
+    const est = new Date(details.estimatedDate || details.actualDate || '').getTime();
     const diffMins = Math.floor((est - sched) / 60000);
     if (diffMins > 30) color = 'bg-orange-500';
     else if (diffMins > 0) color = 'bg-yellow-400';

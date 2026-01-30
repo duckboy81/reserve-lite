@@ -44,21 +44,21 @@ export interface FlightSegment {
     hub: string;
     duration: string;
     mode: string;
-  } | null;
-  depAirport?: string;
-  arrAirport?: string;
-  isPrimary?: boolean;
-  isSecondary?: boolean;
+  } | null | undefined;
+  depAirport?: string | undefined;
+  arrAirport?: string | undefined;
+  isPrimary?: boolean | undefined;
+  isSecondary?: boolean | undefined;
 }
 
 export interface Option {
   type: 'direct' | 'hub-strategy';
-  label?: string;
-  hub?: string;
-  segments?: FlightSegment[];
-  inbound?: FlightSegment[];
-  outbound?: FlightSegment[];
-  finalArr?: string;
+  label?: string | undefined;
+  hub?: string | undefined;
+  segments?: FlightSegment[] | undefined;
+  inbound?: FlightSegment[] | undefined;
+  outbound?: FlightSegment[] | undefined;
+  finalArr?: string | undefined;
 }
 
 export interface RowData {
@@ -66,6 +66,10 @@ export interface RowData {
   date: string;
   callET: string;
   options: Option[];
+}
+
+export interface SearchResult {
+  legs: FlightStatus[];
 }
 
 export interface ScheduleData {

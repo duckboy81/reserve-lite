@@ -1,26 +1,38 @@
 import React, { useState } from 'react';
 import { ArrowRight, Car } from 'lucide-react';
 import StatusDot from '../common/StatusDot';
+import { FlightSegment, FlightStatus } from '../../types';
 
-const FlightPill = ({ f, statusData }) => {
+interface FlightPillProps {
+  f: FlightSegment;
+  statusData: FlightStatus | null | undefined; // Status data from API
+}
+
+const FlightPill: React.FC<FlightPillProps> = ({ f, statusData }) => {
   const [expanded, setExpanded] = useState(false);
-  const formatApiTime = (isoString) => {
+  const formatApiTime = (isoString: string | undefined) => {
     if (!isoString) return null;
     return new Date(isoString).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
-  const depGate = statusData?.departure?.gate;
-  const arrGate = statusData?.arrival?.gate;
-  const hasGateInfo = depGate || arrGate;
-  const displayDep = statusData ? formatApiTime(statusData.departure.estimatedDate || statusData.departure.scheduledDate) : f.dep;
-  const displayArr = statusData ? formatApiTime(statusData.arrival.estimatedDate || statusData.arrival.scheduledDate) : f.arr;
+  const depGate = (statusData as any)?.departure?.gate; // Gates are not in FlightStatus yet, using any cast for now or update interface
+  const arrGate = (statusData as any)?.arrival?.gate;
+  const hasGateInfo = !!(depGate || arrGate);
+  const displayDep = statusData ? formatApiTime(statusData.departureTime?.estimated || statusData.departureTime?.scheduled) : f.dep;
+  const displayArr = statusData ? formatApiTime(statusData.arrivalTime?.estimated || statusData.arrivalTime?.scheduled) : f.arr;
   const timeDisplay = expanded && hasGateInfo
     ? `${displayDep} (${depGate || '-'}) - ${displayArr} (${arrGate || '-'})`
     : (displayDep && displayArr ? `${displayDep}-${displayArr}` : 'N/A');
 
+  const statusDetails = statusData ? {
+    scheduledDate: statusData.departureTime?.scheduled || '',
+    estimatedDate: statusData.departureTime?.estimated,
+    actualDate: statusData.departureTime?.actual
+  } : undefined;
+
   return (
     <div className="flex items-center select-none" onClick={(e) => { e.stopPropagation(); setExpanded(!expanded); }}>
       <div className={`flex-shrink-0 flex items-center gap-1.5 px-2 py-0.5 rounded border shadow-sm transition-colors cursor-pointer ${expanded ? 'bg-indigo-50 border-indigo-300' : 'bg-white border-gray-200 hover:border-indigo-200'}`}>
-        <StatusDot status={statusData ? statusData.lastStatus : f.status} details={statusData ? statusData.departure : null} />
+        <StatusDot status={statusData ? statusData.status : f.status} details={statusDetails} />
         <span className={`text-[11px] font-bold text-gray-800`}>{f.flight || 'UNK'}</span>
         <span className={`text-[10px] font-mono border-l pl-1.5 text-gray-400 border-gray-100 ${expanded ? 'text-indigo-600 font-bold' : ''}`}>
                     {timeDisplay}

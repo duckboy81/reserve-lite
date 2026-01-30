@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Plane, AlertCircle } from 'lucide-react';
 import { AuthService } from '../services/AuthService';
+import { User } from '../types';
 
-const LoginScreen = ({ onLogin }) => {
+interface LoginScreenProps {
+  onLogin: (user: User) => void;
+}
+
+const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
   const [id, setId] = useState('');
   const [pass, setPass] = useState('');
   const [loading, setLoading] = useState(false);
@@ -10,15 +15,16 @@ const LoginScreen = ({ onLogin }) => {
 
   useEffect(() => {
     // Auto-populate from Environment Variables (Vite)
-    if (import.meta.env.VITE_AUTO_LOGIN_ID) {
-      setId(import.meta.env.VITE_AUTO_LOGIN_ID);
+    const env = (import.meta as any).env;
+    if (env.VITE_AUTO_LOGIN_ID) {
+      setId(env.VITE_AUTO_LOGIN_ID);
     }
-    if (import.meta.env.VITE_AUTO_LOGIN_PASS) {
-      setPass(import.meta.env.VITE_AUTO_LOGIN_PASS);
+    if (env.VITE_AUTO_LOGIN_PASS) {
+      setPass(env.VITE_AUTO_LOGIN_PASS);
     }
   }, []);
 
-  const handleSubmit = async (e) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setError('');
     try {

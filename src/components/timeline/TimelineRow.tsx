@@ -1,20 +1,39 @@
 import React from 'react';
 import { Plus } from 'lucide-react';
 import FlightOptionCard from '../flights/FlightOptionCard';
+import { TimelineRowData, Option, FlightStatus } from '../../types';
 
-const TimelineRow = ({ row, onAddOption, onDeleteOption, onEditOption, onReorderOptions, isEdit, flightStatuses }) => {
-  const handleDragStart = (e, idx) => {
-    e.dataTransfer.setData('index', idx);
-    e.dataTransfer.setData('rowId', row.id);
+interface TimelineRowProps {
+  row: TimelineRowData;
+  onAddOption: (rowId: string, rawDate: string) => void;
+  onDeleteOption: (rowId: string, index: number) => void;
+  onEditOption: (rowId: string, index: number, option: Option, rawDate: string) => void;
+  onReorderOptions: (rowId: string, from: number, to: number) => void;
+  isEdit: boolean;
+  flightStatuses: Record<string, FlightStatus>;
+}
+
+const TimelineRow: React.FC<TimelineRowProps> = ({ 
+  row, 
+  onAddOption, 
+  onDeleteOption, 
+  onEditOption, 
+  onReorderOptions, 
+  isEdit, 
+  flightStatuses 
+}) => {
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    e.dataTransfer.setData('index', idx.toString());
+    e.dataTransfer.setData('rowId', row.key);
     e.dataTransfer.effectAllowed = 'move';
   };
-  const handleDragOver = (e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
-  const handleDrop = (e, targetIdx) => {
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; };
+  const handleDrop = (e: React.DragEvent, targetIdx: number) => {
     e.preventDefault();
     const draggedIdx = parseInt(e.dataTransfer.getData('index'));
     const sourceRowId = e.dataTransfer.getData('rowId');
-    if (sourceRowId === row.id && draggedIdx !== targetIdx) {
-      onReorderOptions(row.id, draggedIdx, targetIdx);
+    if (sourceRowId === row.key && draggedIdx !== targetIdx) {
+      onReorderOptions(row.key, draggedIdx, targetIdx);
     }
   };
 
@@ -29,12 +48,22 @@ const TimelineRow = ({ row, onAddOption, onDeleteOption, onEditOption, onReorder
         <span className="font-black text-xl text-gray-900 leading-none">{row.callET}</span>
         <span className="text-[10px] text-indigo-600 font-bold uppercase tracking-wide mt-1">{row.showPT} PT</span>
         {row.is14HrCallout && <span className="text-[9px] bg-amber-100 text-amber-800 px-1 rounded mt-1 font-bold">14HR CALLOUT</span>}
-        {isEdit && <button onClick={() => onAddOption(row.id, row.rawDate)} className="mt-2 bg-blue-50 text-blue-600 p-1 rounded hover:bg-blue-100 flex items-center gap-1 text-[10px] font-bold"><Plus size={12}/> Add</button>}
+        {isEdit && <button onClick={() => onAddOption(row.key, row.rawDate)} className="mt-2 bg-blue-50 text-blue-600 p-1 rounded hover:bg-blue-100 flex items-center gap-1 text-[10px] font-bold"><Plus size={12}/> Add</button>}
       </div>
       <div className={`flex-1 flex flex-wrap items-start gap-4 content-start ${!hasOptions ? 'items-center' : ''}`}>
         {hasOptions ? row.options.map((opt, i) => (
           <div key={i} className="flex-grow max-w-full sm:max-w-[500px]">
-            <FlightOptionCard option={opt} index={i} isEdit={isEdit} onDelete={(idx) => onDeleteOption(row.id, idx)} onEdit={(opt) => onEditOption(row.id, i, opt)} flightStatuses={flightStatuses} onDragStart={handleDragStart} onDragOver={handleDragOver} onDrop={handleDrop} />
+            <FlightOptionCard 
+              option={opt} 
+              index={i} 
+              isEdit={isEdit} 
+              onDelete={(idx) => onDeleteOption(row.key, idx)} 
+              onEdit={(opt) => onEditOption(row.key, i, opt, row.rawDate)} 
+              flightStatuses={flightStatuses} 
+              onDragStart={handleDragStart} 
+              onDragOver={handleDragOver} 
+              onDrop={handleDrop} 
+            />
           </div>
         )) : (
           <div className={`w-full h-full min-h-[40px] flex items-center justify-center border-2 border-dashed rounded-lg text-gray-300 text-xs ${isEdit ? 'border-blue-200 bg-blue-50/10' : 'border-gray-100'}`}>

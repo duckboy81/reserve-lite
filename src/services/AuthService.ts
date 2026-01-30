@@ -1,7 +1,7 @@
 import { API_CONFIG } from '../config/constants';
 
 export const AuthService = {
-  login: async (alpaId, password) => {
+  login: async (alpaId: string, password: string) => {
     try {
       const response = await fetch(API_CONFIG.AUTH_URL, {
         method: 'POST',
@@ -25,7 +25,7 @@ export const AuthService = {
       throw error;
     }
   },
-  getToken: () => {
+  getToken: (): string | null => {
     const stored = localStorage.getItem('alpa_auth');
     if (!stored) return null;
     const data = JSON.parse(stored);
