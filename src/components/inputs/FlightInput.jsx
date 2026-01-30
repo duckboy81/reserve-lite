@@ -78,14 +78,14 @@ const FlightInput = ({ label, value, onChange, onRemove, showRemove, config, dat
 
   const handleFocus = (type) => {
     setRecentAirports(RecentAirports.get());
-    if(type === 'from') setShowRecentFrom(true);
-    if(type === 'to') setShowRecentTo(true);
+    if (type === 'from') setShowRecentFrom(true);
+    if (type === 'to') setShowRecentTo(true);
   };
 
   const handleBlur = (type) => {
     setTimeout(() => {
-      if(type === 'from') setShowRecentFrom(false);
-      if(type === 'to') setShowRecentTo(false);
+      if (type === 'from') setShowRecentFrom(false);
+      if (type === 'to') setShowRecentTo(false);
     }, 200);
   };
 
@@ -93,8 +93,8 @@ const FlightInput = ({ label, value, onChange, onRemove, showRemove, config, dat
     <div className="border rounded-md p-3 bg-white mb-2 shadow-sm relative group">
       {(onMoveUp || onMoveDown) && (
         <div className="absolute left-[-24px] top-1/2 -translate-y-1/2 flex flex-col gap-1">
-          {onMoveUp && <button onClick={onMoveUp} disabled={isFirst} className="p-1 text-gray-400 hover:text-indigo-600 disabled:opacity-30"><ArrowUp size={14}/></button>}
-          {onMoveDown && <button onClick={onMoveDown} disabled={isLast} className="p-1 text-gray-400 hover:text-indigo-600 disabled:opacity-30"><ArrowDown size={14}/></button>}
+          {onMoveUp && <button onClick={onMoveUp} disabled={isFirst} className="p-1 text-gray-400 hover:text-indigo-600 disabled:opacity-30"><ArrowUp size={14} /></button>}
+          {onMoveDown && <button onClick={onMoveDown} disabled={isLast} className="p-1 text-gray-400 hover:text-indigo-600 disabled:opacity-30"><ArrowDown size={14} /></button>}
         </div>
       )}
 
@@ -102,9 +102,9 @@ const FlightInput = ({ label, value, onChange, onRemove, showRemove, config, dat
         <span className="text-xs font-bold text-gray-500 uppercase">{label}</span>
         <div className="flex gap-2">
           <button onClick={() => setShowSearch(!showSearch)} className="text-xs text-indigo-600 font-bold flex items-center gap-1 hover:bg-indigo-50 px-2 py-1 rounded">
-            <Search size={12}/> {showSearch ? 'Cancel Lookup' : 'Find Flight'}
+            <Search size={12} /> {showSearch ? 'Cancel Lookup' : 'Find Flight'}
           </button>
-          {showRemove && <button onClick={onRemove} className="text-red-400 hover:text-red-600"><X size={14}/></button>}
+          {showRemove && <button onClick={onRemove} className="text-red-400 hover:text-red-600"><X size={14} /></button>}
         </div>
       </div>
 
@@ -115,18 +115,19 @@ const FlightInput = ({ label, value, onChange, onRemove, showRemove, config, dat
               <input
                 className="border p-1 rounded text-xs w-full uppercase"
                 value={searchParams.from}
-                onChange={e => setSearchParams({...searchParams, from: e.target.value.toUpperCase()})}
+                onChange={e => setSearchParams({ ...searchParams, from: e.target.value.toUpperCase() })}
                 onFocus={() => handleFocus('from')}
                 onBlur={() => handleBlur('from')}
                 placeholder="From"
               />
               {showRecentFrom && recentAirports.length > 0 && (
+                /* DUPLICATE CODE: This dropdown logic is identical to the 'To' dropdown below. Consider extracting to a <RecentlyUsedDropdown> component. */
                 <div className="absolute top-full left-0 w-full bg-white border shadow-lg z-50 max-h-32 overflow-y-auto rounded-b">
                   <div className="text-[9px] font-bold text-gray-400 bg-gray-50 px-2 py-1">RECENT</div>
                   {recentAirports.map(code => (
                     <div key={code} className="flex justify-between items-center px-2 py-1 hover:bg-indigo-50 cursor-pointer">
-                      <span onClick={() => setSearchParams({...searchParams, from: code})} className="flex-1 text-xs font-bold">{code}</span>
-                      <button onClick={(e) => { e.stopPropagation(); RecentAirports.remove(code); setRecentAirports(RecentAirports.get()); }} className="text-gray-300 hover:text-red-500"><X size={10}/></button>
+                      <span onClick={() => setSearchParams({ ...searchParams, from: code })} className="flex-1 text-xs font-bold">{code}</span>
+                      <button onClick={(e) => { e.stopPropagation(); RecentAirports.remove(code); setRecentAirports(RecentAirports.get()); }} className="text-gray-300 hover:text-red-500"><X size={10} /></button>
                     </div>
                   ))}
                 </div>
@@ -136,24 +137,25 @@ const FlightInput = ({ label, value, onChange, onRemove, showRemove, config, dat
               <input
                 className="border p-1 rounded text-xs w-full uppercase"
                 value={searchParams.to}
-                onChange={e => setSearchParams({...searchParams, to: e.target.value.toUpperCase()})}
+                onChange={e => setSearchParams({ ...searchParams, to: e.target.value.toUpperCase() })}
                 onFocus={() => handleFocus('to')}
                 onBlur={() => handleBlur('to')}
                 placeholder="To"
               />
               {showRecentTo && recentAirports.length > 0 && (
+                /* DUPLICATE CODE: This dropdown logic is identical to the 'From' dropdown above. Consider extracting to a <RecentlyUsedDropdown> component. */
                 <div className="absolute top-full left-0 w-full bg-white border shadow-lg z-50 max-h-32 overflow-y-auto rounded-b">
                   <div className="text-[9px] font-bold text-gray-400 bg-gray-50 px-2 py-1">RECENT</div>
                   {recentAirports.map(code => (
                     <div key={code} className="flex justify-between items-center px-2 py-1 hover:bg-indigo-50 cursor-pointer">
-                      <span onClick={() => setSearchParams({...searchParams, to: code})} className="flex-1 text-xs font-bold">{code}</span>
-                      <button onClick={(e) => { e.stopPropagation(); RecentAirports.remove(code); setRecentAirports(RecentAirports.get()); }} className="text-gray-300 hover:text-red-500"><X size={10}/></button>
+                      <span onClick={() => setSearchParams({ ...searchParams, to: code })} className="flex-1 text-xs font-bold">{code}</span>
+                      <button onClick={(e) => { e.stopPropagation(); RecentAirports.remove(code); setRecentAirports(RecentAirports.get()); }} className="text-gray-300 hover:text-red-500"><X size={10} /></button>
                     </div>
                   ))}
                 </div>
               )}
             </div>
-            <input type="date" className="border p-1 rounded text-xs" value={searchParams.date} onChange={e => setSearchParams({...searchParams, date: e.target.value})} />
+            <input type="date" className="border p-1 rounded text-xs" value={searchParams.date} onChange={e => setSearchParams({ ...searchParams, date: e.target.value })} />
           </div>
           <button onClick={handleSearch} disabled={isSearching} className="w-full bg-indigo-600 text-white text-xs font-bold py-1.5 rounded mb-2">
             {isSearching ? 'Searching...' : 'Search Flights'}
@@ -209,15 +211,15 @@ const FlightInput = ({ label, value, onChange, onRemove, showRemove, config, dat
       {allowGround && (
         <div className="mt-2 flex items-center justify-between border-t pt-2">
           <div className="flex items-center gap-2">
-            <input type="checkbox" id={`ground-${label}`} checked={showGround} onChange={toggleGround} className="rounded text-indigo-600 focus:ring-indigo-500"/>
+            <input type="checkbox" id={`ground-${label}`} checked={showGround} onChange={toggleGround} className="rounded text-indigo-600 focus:ring-indigo-500" />
             <label htmlFor={`ground-${label}`} className="text-xs text-gray-600 select-none cursor-pointer">Add Ground Commute</label>
           </div>
           {showGround && (
             <div className="flex items-center gap-1 bg-yellow-50 p-1 rounded border border-yellow-200">
               <span className="text-[10px] text-yellow-800 font-bold">HUB:</span>
-              <input className="w-10 p-0.5 text-xs border rounded uppercase" value={value?.ground?.hub || ''} onChange={e => updateField('ground', {...value.ground, hub: e.target.value})} placeholder="DTW"/>
+              <input className="w-10 p-0.5 text-xs border rounded uppercase" value={value?.ground?.hub || ''} onChange={e => updateField('ground', { ...value.ground, hub: e.target.value })} placeholder="DTW" />
               <span className="text-[10px] text-yellow-800 font-bold ml-1">HRS:</span>
-              <input className="w-10 p-0.5 text-xs border rounded" value={value?.ground?.duration || ''} onChange={e => updateField('ground', {...value.ground, duration: e.target.value})} placeholder="1.0"/>
+              <input className="w-10 p-0.5 text-xs border rounded" value={value?.ground?.duration || ''} onChange={e => updateField('ground', { ...value.ground, duration: e.target.value })} placeholder="1.0" />
             </div>
           )}
         </div>

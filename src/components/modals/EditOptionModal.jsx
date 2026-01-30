@@ -71,8 +71,8 @@ const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, 
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
         <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
-          <h3 className="font-bold text-lg flex items-center gap-2"><Edit3 size={18}/> {initialOption ? 'Edit Strategy' : 'Add New Strategy'}</h3>
-          <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-gray-600"/></button>
+          <h3 className="font-bold text-lg flex items-center gap-2"><Edit3 size={18} /> {initialOption ? 'Edit Strategy' : 'Add New Strategy'}</h3>
+          <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-gray-600" /></button>
         </div>
 
         <div className="p-4 overflow-y-auto flex-1 bg-gray-50/50">
@@ -90,7 +90,7 @@ const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, 
               {segments.map((seg, i) => (
                 <FlightInput
                   key={i}
-                  label={`Flight Segment #${i+1}`}
+                  label={`Flight Segment #${i + 1}`}
                   value={seg}
                   onChange={(val) => { const n = [...segments]; n[i] = val; setSegments(n); }}
                   showRemove={segments.length > 1}
@@ -121,18 +121,19 @@ const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, 
               </div>
 
               <div>
-                <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2"><Plane size={14}/> Inbound Legs (To Hub)</h4>
+                <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2"><Plane size={14} /> Inbound Legs (To Hub)</h4>
                 <div className="pl-6 border-l-2 border-gray-200 ml-1">
+                  {/* DUPLICATE CODE: This mapping logic is very similar to the outbound mapping below. Consider creating a <FlightList> component. */}
                   {inbounds.map((seg, i) => (
                     <FlightInput
                       key={i}
-                      label={`Inbound Option #${i+1}`}
+                      label={`Inbound Option #${i + 1}`}
                       value={seg}
                       onChange={(val) => { const n = [...inbounds]; n[i] = val; setInbounds(n); }}
                       showRemove={inbounds.length > 1}
                       onRemove={() => { const n = inbounds.filter((_, idx) => idx !== i); setInbounds(n); }}
-                      onMoveUp={() => setInbounds(moveItem(inbounds, i, i-1))}
-                      onMoveDown={() => setInbounds(moveItem(inbounds, i, i+1))}
+                      onMoveUp={() => setInbounds(moveItem(inbounds, i, i - 1))}
+                      onMoveDown={() => setInbounds(moveItem(inbounds, i, i + 1))}
                       isFirst={i === 0}
                       isLast={i === inbounds.length - 1}
                       config={config}
@@ -143,14 +144,15 @@ const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, 
                     />
                   ))}
                   <button onClick={() => setInbounds([...inbounds, { flight: '', dep: '', arr: '' }])} className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline">
-                    <Plus size={14}/> Add Inbound Option
+                    <Plus size={14} /> Add Inbound Option
                   </button>
                 </div>
               </div>
 
               <div>
-                <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2"><Split size={14}/> Outbound Options (From Hub)</h4>
+                <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2"><Split size={14} /> Outbound Options (From Hub)</h4>
                 <div className="pl-6 border-l-2 border-gray-200 ml-1">
+                  {/* DUPLICATE CODE: This mapping logic is very similar to the inbound mapping above. Consider creating a <FlightList> component. */}
                   {outbounds.map((seg, i) => (
                     <FlightInput
                       key={i}
@@ -159,8 +161,8 @@ const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, 
                       onChange={(val) => { const n = [...outbounds]; n[i] = val; setOutbounds(n); }}
                       showRemove={outbounds.length > 1}
                       onRemove={() => { const n = outbounds.filter((_, idx) => idx !== i); setOutbounds(n); }}
-                      onMoveUp={() => setOutbounds(moveItem(outbounds, i, i-1))}
-                      onMoveDown={() => setOutbounds(moveItem(outbounds, i, i+1))}
+                      onMoveUp={() => setOutbounds(moveItem(outbounds, i, i - 1))}
+                      onMoveDown={() => setOutbounds(moveItem(outbounds, i, i + 1))}
                       isFirst={i === 0}
                       isLast={i === outbounds.length - 1}
                       config={config}
@@ -171,7 +173,7 @@ const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, 
                     />
                   ))}
                   <button onClick={() => setOutbounds([...outbounds, { flight: '', dep: '', arr: '', isPrimary: false }])} className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline">
-                    <Plus size={14}/> Add Alternative Option
+                    <Plus size={14} /> Add Alternative Option
                   </button>
                 </div>
               </div>
