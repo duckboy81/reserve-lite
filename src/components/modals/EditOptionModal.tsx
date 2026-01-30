@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Edit3, X, Plane, Split, Plus } from 'lucide-react';
 import FlightInput from '../inputs/FlightInput';
 import { COMMON_HUBS } from '../../config/constants';
-import { moveItem } from '../../utils/dateUtils';
+import { moveItem } from '../../utils/dateUtil';
 
 const EditOptionModal = ({ isOpen, onClose, onSave, initialOption, dateContext, config }) => {
   const [strategy, setStrategy] = useState('direct'); // 'direct' | 'hub'

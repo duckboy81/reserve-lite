@@ -8,7 +8,10 @@ export const AuthService = {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ AlpaId: alpaId, Domain: 'ALPA2k', Password: password })
       });
-      if (!response.ok) throw new Error('Login failed');
+      if (!response.ok) {
+        // noinspection ExceptionCaughtLocallyJS
+        throw new Error('Login failed');
+      }
       const data = await response.json();
       const tokenData = {
         token: data.access_token,

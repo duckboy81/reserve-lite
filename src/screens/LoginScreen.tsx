@@ -50,7 +50,6 @@ const LoginScreen = ({ onLogin }) => {
             {loading ? 'Authenticating...' : 'Sign In'}
           </button>
         </form>
-        <p className="text-center text-xs text-gray-400 mt-6">Secure connection to authsvc2.alpa.org</p>
       </div>
     </div>
   );

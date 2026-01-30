@@ -3,8 +3,10 @@ import { Plane, RefreshCw, LogOut, Edit3, Save, Undo, Redo, X, Calendar, Setting
 import { AuthService } from './services/AuthService';
 import { FlightService } from './services/FlightService';
 import { StringParser } from './utils/StringParser';
-import { generateTimeline } from './utils/dateUtils';
+import { generateTimeline } from './utils/dateUtil';
 import { DEFAULT_CONFIG, SEED_CSV_DATA } from './config/constants';
+
+import { ReserveBlock, ScheduleData, Config, User, Option, RowData, FlightStatus, EditContext } from './types';
 
 import LoginScreen from './screens/LoginScreen';
 import TimelineRow from './components/timeline/TimelineRow';
@@ -14,34 +16,37 @@ import BlockManager from './components/modals/BlockManager';
 import ConfirmModal from './components/modals/ConfirmModal';
 
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [airport, setAirport] = useState('ONT');
-  const [config, setConfig] = useState(DEFAULT_CONFIG);
+  const [user, setUser] = useState<User | null>(null);
+  const [airport, setAirport] = useState<string>('ONT');
+  const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
 
   // Data State
-  const [scheduleData, setScheduleData] = useState({});
-  const [reserveBlocks, setReserveBlocks] = useState([]);
-  const [activeBlockId, setActiveBlockId] = useState(null);
-  const [flightStatuses, setFlightStatuses] = useState({});
+  const [scheduleData, setScheduleData] = useState<ScheduleData>({});
+  const [reserveBlocks, setReserveBlocks] = useState<ReserveBlock[]>([]);
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  const [flightStatuses, setFlightStatuses] = useState<Record<string, FlightStatus>>({});
 
   // Edit State
-  const [isEditMode, setIsEditMode] = useState(false);
-  const [stagingData, setStagingData] = useState(null); // The temporary data being edited
-  const [history, setHistory] = useState([]);
-  const [future, setFuture] = useState([]);
+  const [isEditMode, setIsEditMode] = useState<boolean>(false);
+  const [stagingData, setStagingData] = useState<ScheduleData | null>(null); // The temporary data being edited
+  const [history, setHistory] = useState<ScheduleData[]>([]);
+  const [future, setFuture] = useState<ScheduleData[]>([]);
 
   // UI State
   const [modals, setModals] = useState({ edit: false, config: false, blocks: false });
-  const [editContext, setEditContext] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [editContext, setEditContext] = useState<EditContext | null>(null);
+  const [loading, setLoading] = useState<boolean>(false);
 
   // Confirmation Modal State
-  const [confirmModal, setConfirmModal] = useState({ isOpen: false, type: null });
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; type: 'commit' | 'discard' | null }>({ isOpen: false, type: null });
 
   // --- INIT ---
   useEffect(() => {
     const token = AuthService.getToken();
-    if (token) setUser(JSON.parse(localStorage.getItem('alpa_auth')).userInfo);
+    if (token) {
+        const authStr = localStorage.getItem('alpa_auth');
+        if (authStr) setUser(JSON.parse(authStr).userInfo);
+    }
 
     const savedData = localStorage.getItem('reserve_lite_data_v2');
     const savedBlocks = localStorage.getItem('reserve_lite_blocks');
@@ -59,7 +64,7 @@ export default function App() {
     } else {
       const parsed = StringParser.seedFromCSV(SEED_CSV_DATA);
       setScheduleData(parsed);
-      const defaultBlock = { id: 'default-1', start: '2026-01-30T10:00:00', end: '2026-02-01T06:00:00' };
+      const defaultBlock: ReserveBlock = { id: 'default-1', start: '2026-01-30T10:00:00', end: '2026-02-01T06:00:00' };
       setReserveBlocks([defaultBlock]);
       setActiveBlockId(defaultBlock.id);
       localStorage.setItem('reserve_lite_data_v2', JSON.stringify(parsed));
@@ -149,33 +154,27 @@ export default function App() {
     setModals({...modals, edit: false});
   };
 
-  const deleteOption = (rowId, index) => {
-    let currentData = stagingData;
-    if (!isEditMode || !currentData) {
-      setIsEditMode(true);
-      currentData = JSON.parse(JSON.stringify(scheduleData));
-    }
+  const modifyOptions = (rowId: string, action: (options: Option[]) => void) => {
+    let currentData = stagingData || JSON.parse(JSON.stringify(scheduleData));
+    if (!isEditMode) setIsEditMode(true);
+
     const newData = JSON.parse(JSON.stringify(currentData));
-    const row = newData[airport].find(r => r.key === rowId);
-    if(row) {
-      row.options.splice(index, 1);
+    const row = newData[airport].find((r: RowData) => r.key === rowId);
+    if (row) {
+      action(row.options);
       updateStaging(newData);
     }
   };
 
-  const reorderOptions = (rowId, from, to) => {
-    let currentData = stagingData;
-    if (!isEditMode || !currentData) {
-      setIsEditMode(true);
-      currentData = JSON.parse(JSON.stringify(scheduleData));
-    }
-    const newData = JSON.parse(JSON.stringify(currentData));
-    const row = newData[airport].find(r => r.key === rowId);
-    if(row) {
-      const [moved] = row.options.splice(from, 1);
-      row.options.splice(to, 0, moved);
-      updateStaging(newData);
-    }
+  const deleteOption = (rowId: string, index: number) => {
+    modifyOptions(rowId, (options) => { options.splice(index, 1); });
+  };
+
+  const reorderOptions = (rowId: string, from: number, to: number) => {
+    modifyOptions(rowId, (options) => {
+      const [moved] = options.splice(from, 1);
+      options.splice(to, 0, moved);
+    });
   };
 
   // --- BLOCK MANIPULATION ---
@@ -296,7 +295,7 @@ export default function App() {
             <div className="flex items-center gap-2">
               <div className="bg-indigo-600 text-white p-1 rounded"><Plane size={16}/></div>
               <span className="font-bold text-sm tracking-tight hidden sm:inline">Reserve<span className="text-indigo-600">Lite</span></span>
-              <div className="h-4 w-[1px] bg-gray-300 mx-2"></div>
+              <div className="h-4 w-px bg-gray-300 mx-2"></div>
               <div className="flex bg-gray-100 p-0.5 rounded-lg">
                 {['LAX', 'ONT', 'SNA', 'BUR'].map((code) => (
                   <button key={code} onClick={() => setAirport(code)}
@@ -325,7 +324,7 @@ export default function App() {
                   <button onClick={enterEditMode} className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full font-bold text-xs hover:bg-blue-100 transition-colors">
                     <Edit3 size={14} /> Edit Plan
                   </button>
-                  <div className="h-4 w-[1px] bg-gray-300 mx-1"></div>
+                  <div className="h-4 w-px bg-gray-300 mx-1"></div>
                   <button onClick={handleGlobalRefresh} className={`p-2 rounded-full hover:bg-gray-100 text-gray-500 ${loading ? 'animate-spin' : ''}`} title="Refresh All Flights">
                     <RefreshCw size={16} />
                   </button>

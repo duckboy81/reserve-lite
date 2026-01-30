@@ -1,12 +1,14 @@
+import { Option, FlightSegment, ScheduleData, RowData } from '../types';
+
 export const StringParser = {
   FLIGHT_REGEX: /(\d{4})\/(\d{4})\s+([A-Z0-9]+)/,
   GROUND_REGEX: /-\s*([A-Z]{3})\+(\d+(\.\d+)?)Huber/i,
   HUB_SPLIT_REGEX: /\s+-\s+([A-Z]{3})\s+-\s+/,
 
-  parseSegmentString: (segStr) => {
+  parseSegmentString: (segStr: string | null): FlightSegment | null => {
     if (!segStr) return null;
     const cleanStr = segStr.trim();
-    let ground = null;
+    let ground: FlightSegment['ground'] = null;
     let flightPart = cleanStr;
     const groundMatch = cleanStr.match(StringParser.GROUND_REGEX);
     if (groundMatch) {
@@ -29,9 +31,9 @@ export const StringParser = {
     return null;
   },
 
-  processRowOptions: (optionStrings) => {
-    const finalOptions = [];
-    const parseSelfContained = (str) => {
+  processRowOptions: (optionStrings: string[]): Option[] => {
+    const finalOptions: Option[] = [];
+    const parseSelfContained = (str: string): Option | null => {
       const match = str.match(StringParser.HUB_SPLIT_REGEX);
       if (match) {
         const hub = match[1];
@@ -69,12 +71,12 @@ export const StringParser = {
     return finalOptions;
   },
 
-  seedFromCSV: (csvDataMap) => {
-    const parsedData = {};
+  seedFromCSV: (csvDataMap: Record<string, string>): ScheduleData => {
+    const parsedData: ScheduleData = {};
     Object.keys(csvDataMap).forEach(airport => {
       const text = csvDataMap[airport];
       const lines = text.trim().split('\n');
-      const airportRows = [];
+      const airportRows: RowData[] = [];
       for (let i = 1; i < lines.length; i++) {
         const cols = lines[i].split(',');
         if (cols.length < 4) continue;

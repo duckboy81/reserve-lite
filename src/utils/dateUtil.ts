@@ -1,8 +1,12 @@
-export const formatDate = (date) => date.toISOString().split('T')[0];
+// noinspection JSUnusedGlobalSymbols
 
-export const addHours = (date, h) => new Date(date.getTime() + h * 60 * 60 * 1000);
+import { Config, TimelineRowData } from '../types';
 
-export const moveItem = (arr, from, to) => {
+export const formatDate = (date: Date): string => date.toISOString().split('T')[0];
+
+export const addHours = (date: Date, h: number): Date => new Date(date.getTime() + h * 60 * 60 * 1000);
+
+export const moveItem = <T>(arr: T[], from: number, to: number): T[] => {
   if (to < 0 || to >= arr.length) return arr;
   const newArr = [...arr];
   const [moved] = newArr.splice(from, 1);
@@ -10,16 +14,19 @@ export const moveItem = (arr, from, to) => {
   return newArr;
 };
 
-export const generateTimeline = (startStr, endStr, config) => {
-  const rows = [];
-  const getTimeInTz = (date, tz) => {
+export const generateTimeline = (startStr: string, endStr: string, config: Config): TimelineRowData[] => {
+  const rows: TimelineRowData[] = [];
+  const getTimeInTz = (date: Date, tz: string) => {
     const formatter = new Intl.DateTimeFormat('en-US', {
       timeZone: tz,
       year: 'numeric', month: 'numeric', day: 'numeric',
       hour: 'numeric', minute: 'numeric', hour12: false
     });
     const parts = formatter.formatToParts(date);
-    const getPart = (type) => parseInt(parts.find(p => p.type === type).value);
+    const getPart = (type: Intl.DateTimeFormatPartTypes) => {
+      const p = parts.find(p => p.type === type);
+      return p ? parseInt(p.value) : 0;
+    };
     return {
       year: getPart('year'), month: getPart('month'), day: getPart('day'),
       hour: getPart('hour'), minute: getPart('minute'),
@@ -27,6 +34,7 @@ export const generateTimeline = (startStr, endStr, config) => {
   };
 
   let iterator = new Date(`${startStr}T00:00:00`);
+
   iterator = new Date(iterator.getTime() - 12 * 60 * 60 * 1000);
   let limit = 0;
   const SAFETY_BREAK = 2000;
