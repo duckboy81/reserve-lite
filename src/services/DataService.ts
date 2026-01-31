@@ -1,9 +1,31 @@
 import { db, FlightCacheItem, ScheduleRow } from "../db/ReserveDatabase";
 import { ReserveBlock, ScheduleData, RowData } from "../types";
 
+const TRASH_RETENTION_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+
+// Helpers
+const flattenSchedule = (data: ScheduleData): ScheduleRow[] => {
+  const rows: ScheduleRow[] = [];
+  Object.entries(data).forEach(([airport, airportRows]) => {
+    airportRows.forEach((row) => {
+      rows.push({ ...row, airport });
+    });
+  });
+  return rows;
+};
+
+const inflateSchedule = (rows: ScheduleRow[]): ScheduleData => {
+  const data: ScheduleData = {};
+  rows.forEach((row) => {
+    const { airport, ...rowData } = row;
+    if (!data[airport]) data[airport] = [];
+    data[airport]?.push(rowData as RowData);
+  });
+  return data;
+};
+
 export const DataService = {
-  initialize: async () => {
-    // Check for legacy data in localStorage
+  initialize: async (): Promise<void> => {
     const legacyBlocks = localStorage.getItem("reserve_lite_blocks");
     const legacySchedule = localStorage.getItem("reserve_lite_data_v2");
     const legacyCache = localStorage.getItem("flight_status_cache");
@@ -25,12 +47,7 @@ export const DataService = {
         if (legacySchedule) {
           try {
             const schedule: ScheduleData = JSON.parse(legacySchedule);
-            const rows: ScheduleRow[] = [];
-            Object.entries(schedule).forEach(([airport, airportRows]) => {
-              airportRows.forEach((row) => {
-                rows.push({ ...row, airport });
-              });
-            });
+            const rows = flattenSchedule(schedule);
             await db.schedule.bulkPut(rows);
           } catch (e) {
             console.error("Failed to migrate schedule", e);
@@ -58,8 +75,7 @@ export const DataService = {
         }
       });
 
-      // Clear legacy data after successful migration (or partial)
-      // We keep config and auth in localStorage
+      // Clear legacy data
       localStorage.removeItem("reserve_lite_blocks");
       localStorage.removeItem("reserve_lite_data_v2");
       localStorage.removeItem("flight_status_cache");
@@ -68,17 +84,17 @@ export const DataService = {
   },
 
   // Block Methods
-  getBlocks: () => db.blocks.toArray(),
+  getBlocks: (): Promise<ReserveBlock[]> => db.blocks.toArray(),
   addBlock: (block: ReserveBlock) => db.blocks.put(block),
   updateBlock: (block: ReserveBlock) => db.blocks.put(block),
-  deleteBlock: async (id: string, permanent = false) => {
+  deleteBlock: async (id: string, permanent = false): Promise<void> => {
     if (permanent) {
-      return db.blocks.delete(id);
+      await db.blocks.delete(id);
     } else {
-      return db.blocks.update(id, { isDeleted: true, deletedAt: Date.now() });
+      await db.blocks.update(id, { isDeleted: true, deletedAt: Date.now() });
     }
   },
-  restoreBlock: async (id: string) => {
+  restoreBlock: async (id: string): Promise<void> => {
     const block = await db.blocks.get(id);
     if (block) {
       block.isDeleted = false;
@@ -90,79 +106,55 @@ export const DataService = {
   // Schedule Methods
   getSchedule: async (): Promise<ScheduleData> => {
     const rows = await db.schedule.toArray();
-    const data: ScheduleData = {};
-    rows.forEach((row) => {
-      if (!data[row.airport]) data[row.airport] = [];
-      const { airport, ...rowData } = row;
-      data[row.airport]?.push(rowData as RowData);
-    });
-    return data;
+    return inflateSchedule(rows);
   },
+
   saveScheduleRow: (airport: string, row: RowData) => {
     return db.schedule.put({ ...row, airport });
   },
-  saveScheduleData: async (data: ScheduleData) => {
+
+  saveScheduleData: async (data: ScheduleData): Promise<void> => {
     await db.transaction("rw", db.schedule, async () => {
-      // This acts as a full replacement or update.
-      // Existing logic in App.tsx replaces the entire object.
-      // We probably want to replicate that behavior or be smarter.
-      // Implemeting "Dump and Load" for simplicity to match previous behavior if needed,
-      // but ideally we only touch changed rows.
-      // For now, let's bulkPut all rows.
-      const rows: ScheduleRow[] = [];
-      Object.entries(data).forEach(([airport, airportRows]) => {
-        airportRows.forEach((row) => {
-          rows.push({ ...row, airport });
-        });
-      });
+      // Full replacement strategy: clear existing schedule and insert new data
+      await db.schedule.clear();
+      const rows = flattenSchedule(data);
       await db.schedule.bulkPut(rows);
     });
   },
 
   // Lifecycle Methods
-  processLifecycle: async () => {
-    // Trash Cleanup (90 days)
-    const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
-    await db.blocks.filter((b) => b.isDeleted === true && !!b.deletedAt && b.deletedAt < ninetyDaysAgo).delete();
+  processLifecycle: async (): Promise<void> => {
+    // Trash Cleanup
+    const cutoffDate = Date.now() - TRASH_RETENTION_MS;
+    await db.blocks
+      .filter((b) => b.isDeleted === true && !!b.deletedAt && b.deletedAt < cutoffDate)
+      .delete();
 
     // Archive Auto-Move
-    // Last day of reserve + 1 day passed.
-    // We need to parse dates. 'end' is ISO string.
     const now = new Date();
     const blocks = await db.blocks.filter((b) => !b.isDeleted && !b.isArchived).toArray();
     const toArchive: string[] = [];
 
     blocks.forEach((b) => {
       const endDate = new Date(b.end);
-      // "last day of reserve plus 1 day has passed"
-      // effectively: now > endDate + 1 day
-      const cutoff = new Date(endDate);
-      cutoff.setDate(cutoff.getDate() + 1);
+      // Archive if now > endDate + 1 day
+      const archiveCutoff = new Date(endDate);
+      archiveCutoff.setDate(archiveCutoff.getDate() + 1);
 
-      if (now > cutoff) {
+      if (now > archiveCutoff) {
         toArchive.push(b.id);
       }
     });
 
     if (toArchive.length > 0) {
-      await db.transaction("rw", db.blocks, async () => {
-        for (const id of toArchive) {
-          await db.blocks.update(id, { isArchived: true });
-        }
-      });
+      await db.blocks.where("id").anyOf(toArchive).modify({ isArchived: true });
     }
   },
 
   // Export / Import
-  exportData: async () => {
+  exportData: async (): Promise<string> => {
     const blocks = await db.blocks.toArray();
-    const scheduleRows = await db.schedule.toArray();
-    const schedule: ScheduleData = {};
-    scheduleRows.forEach((row) => {
-      const { airport, ...rowData } = row;
-      if (!schedule[airport]) schedule[airport] = [];
-      schedule[airport].push(rowData as RowData);
-    });
+    const schedule = await DataService.getSchedule();
 
     const exportObj = {
       version: 2,
@@ -221,21 +213,17 @@ export const DataService = {
     }
   },
 
-  importData: async (data: any) => {
+  importData: async (data: any): Promise<void> => {
     await db.transaction("rw", db.blocks, db.schedule, async () => {
       await db.blocks.clear();
       await db.schedule.clear();
 
       if (data.blocks) await db.blocks.bulkPut(data.blocks);
       if (data.schedule) {
-        const rows: ScheduleRow[] = [];
-        Object.entries(data.schedule as ScheduleData).forEach(([airport, airportRows]) => {
-          airportRows.forEach((row: RowData) => {
-            rows.push({ ...row, airport });
-          });
-        });
+        const rows = flattenSchedule(data.schedule);
         await db.schedule.bulkPut(rows);
       }
     });
   },
 };
+
