@@ -15,16 +15,16 @@ interface FlightOptionCardProps {
   onDrop: (e: React.DragEvent, index: number) => void;
 }
 
-const FlightOptionCard: React.FC<FlightOptionCardProps> = ({ 
-  option, 
-  index, 
-  isEdit, 
-  onDelete, 
-  onEdit, 
-  flightStatuses = {}, 
-  onDragStart, 
-  onDragOver, 
-  onDrop 
+const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
+  option,
+  index,
+  isEdit,
+  onDelete,
+  onEdit,
+  flightStatuses = {},
+  onDragStart,
+  onDragOver,
+  onDrop
 }) => {
   const getPrimaryArr = (opt: Option) => {
     if (opt.type === 'hub-strategy' && opt.outbound) {
@@ -38,7 +38,7 @@ const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
     return 'N/A';
   };
   const primaryArr = getPrimaryArr(option);
-  const inbounds = option.type === 'hub-strategy' 
+  const inbounds = option.type === 'hub-strategy'
     ? (Array.isArray(option.inbound) ? option.inbound : (option.inbound ? [option.inbound] : []))
     : [];
 
@@ -51,8 +51,8 @@ const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
       onDrop={(e) => isEdit && onDrop(e, index)}
     >
       <div className="absolute left-0 top-3 bg-gray-50 text-gray-400 text-[10px] font-bold px-1.5 py-1 rounded border border-gray-100 z-10 flex flex-col items-center">
-        <span>#{index+1}</span>
-        {isEdit && <GripVertical size={10} className="mt-1 text-gray-300"/>}
+        <span>#{index + 1}</span>
+        {isEdit && <GripVertical size={10} className="mt-1 text-gray-300" />}
       </div>
       <div
         className={`bg-white border border-gray-200 rounded-lg shadow-sm p-3 pl-6 transition-all relative ${isEdit ? 'hover:border-blue-400 border-blue-100 bg-blue-50/10' : 'hover:border-indigo-300'}`}
@@ -61,12 +61,9 @@ const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
         {option.type === 'hub-strategy' ? (
           <div className="flex flex-col w-full relative pb-4 mb-2">
             <div className="flex flex-col gap-1 pb-2">
-              <div className="flex items-center gap-2">
-                <span className="text-[9px] font-bold bg-indigo-50 text-indigo-600 px-1.5 rounded uppercase tracking-wider">Inbound</span>
-              </div>
               {inbounds.map((f, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  {inbounds.length > 1 && <span className="text-[9px] text-gray-400 font-bold w-3">#{i+1}</span>}
+                  {inbounds.length > 1 && <span className="text-[9px] text-gray-400 font-bold w-3">#{i + 1}</span>}
                   <FlightPill f={f} statusData={flightStatuses[f.flight]} />
                 </div>
               ))}
@@ -75,9 +72,6 @@ const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
             <div className="flex flex-col gap-2 pt-1">
               {option.outbound?.map((f, i) => (
                 <div key={i} className="flex items-center gap-2">
-                        <span className={`text-[9px] font-bold px-1.5 rounded uppercase tracking-wider ${f.isPrimary ? 'bg-green-50 text-green-600' : 'bg-gray-50 text-gray-400'}`}>
-                            {f.isPrimary ? 'Primary' : `Alt ${i}`}
-                        </span>
                   <FlightPill f={f} statusData={flightStatuses[f.flight]} />
                 </div>
               ))}
@@ -90,7 +84,7 @@ const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
           <div className="flex flex-wrap gap-2 items-center py-2">
             {option.segments?.map((seg, idx) => (
               <React.Fragment key={idx}>
-                {idx > 0 && <ArrowRight size={10} className="text-gray-300"/>}
+                {idx > 0 && <ArrowRight size={10} className="text-gray-300" />}
                 <FlightPill f={seg} statusData={flightStatuses[seg.flight]} />
               </React.Fragment>
             ))}
