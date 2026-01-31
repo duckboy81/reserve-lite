@@ -44,7 +44,7 @@ const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
 
   return (
     <div
-      className={`relative pl-3 mt-2 min-w-[340px] mb-5 group ${isEdit ? 'cursor-grab active:cursor-grabbing' : ''}`}
+      className={`relative pl-3 mt-2 min-w-[340px] mb-2 group ${isEdit ? 'cursor-grab active:cursor-grabbing' : ''}`}
       draggable={isEdit}
       onDragStart={(e) => isEdit && onDragStart(e, index)}
       onDragOver={(e) => isEdit && onDragOver(e)}
@@ -58,8 +58,10 @@ const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
         className={`bg-white border border-gray-200 rounded-lg shadow-sm p-3 pl-6 transition-all relative ${isEdit ? 'hover:border-blue-400 border-blue-100 bg-blue-50/10' : 'hover:border-indigo-300'}`}
         onClick={() => isEdit && onEdit(option)}
       >
+        {isEdit && <button onClick={(e) => { e.stopPropagation(); onDelete(index); }} className="absolute -top-2 -right-2 bg-red-100 text-red-600 p-1.5 rounded-full shadow-sm hover:bg-red-200 z-50"><Trash2 size={14} /></button>}
+
         {option.type === 'hub-strategy' ? (
-          <div className="flex flex-col w-full relative pb-4 mb-2">
+          <div className="flex flex-col w-full">
             <div className="flex flex-col gap-1 pb-2">
               {inbounds.map((f, i) => (
                 <div key={i} className="flex items-center gap-2">
@@ -69,35 +71,45 @@ const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
               ))}
             </div>
             <div className="border-t border-dashed border-gray-200 w-full my-1"></div>
-            <div className="flex flex-col gap-2 pt-1">
+            <div className="flex flex-col gap-2 pt-1 mb-2">
               {option.outbound?.map((f, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <FlightPill f={f} statusData={flightStatuses[f.flight]} />
                 </div>
               ))}
             </div>
-            <div className="absolute -bottom-3 left-3 bg-purple-100 border border-purple-200 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm z-20">
-              <Split size={10} /> Via {option.hub} Strategy
-            </div>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-2 items-center py-2">
+          <div className="flex flex-wrap gap-2 items-center py-2 mb-2">
             {option.segments?.map((seg, idx) => (
               <React.Fragment key={idx}>
                 {idx > 0 && <ArrowRight size={10} className="text-gray-300" />}
                 <FlightPill f={seg} statusData={flightStatuses[seg.flight]} />
               </React.Fragment>
             ))}
-            {option.label && <div className="absolute -bottom-3 left-3 bg-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm z-20">{option.label}</div>}
           </div>
         )}
-        <div className="absolute -bottom-3 right-4 bg-white border border-gray-200 shadow-sm rounded-full px-3 py-1 flex items-center gap-3 z-20">
-          <div className="flex items-baseline gap-1">
+
+        {/* Footer Info Row */}
+        <div className="flex justify-between items-center mt-1 pt-1">
+          <div>
+            {option.type === 'hub-strategy' && (
+              <div className="bg-purple-50 border border-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                <Split size={10} /> Via {option.hub}
+              </div>
+            )}
+            {option.type !== 'hub-strategy' && option.label && (
+              <div className="bg-purple-50 border border-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                {option.label}
+              </div>
+            )}
+          </div>
+          <div className="flex items-baseline gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
             <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Land:</span>
             <span className="font-mono font-bold text-xs text-gray-900">{primaryArr}</span>
           </div>
         </div>
-        {isEdit && <button onClick={(e) => { e.stopPropagation(); onDelete(index); }} className="absolute -top-2 -right-2 bg-red-100 text-red-600 p-1.5 rounded-full shadow-sm hover:bg-red-200 z-30"><Trash2 size={14} /></button>}
+
       </div>
     </div>
   );

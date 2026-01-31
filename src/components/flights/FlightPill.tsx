@@ -40,6 +40,11 @@ const FlightPill: React.FC<FlightPillProps> = ({ f, statusData }) => {
         <span className={`text-[10px] font-mono border-l pl-1.5 text-gray-400 border-gray-100 ${expanded ? 'text-indigo-600 font-bold' : ''}`}>
           {timeDisplay}
         </span>
+        {expanded && statusData?._retrievedAt && (
+          <span className="text-[9px] text-gray-400 ml-1 border-l pl-1">
+            {Math.floor((Date.now() - statusData._retrievedAt) / 60000)}m ago
+          </span>
+        )}
       </div>
       {f.ground && (
         <div className="flex items-center ml-1">

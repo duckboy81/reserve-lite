@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Edit3, X, Plane, Split, Plus } from 'lucide-react';
 import FlightInput from '../inputs/FlightInput';
 import { COMMON_HUBS } from '../../config/constants';
+import { RecentAirports } from '../../services/StorageService';
 import { moveItem } from '../../utils/dateUtil';
 import { Option, Config, FlightSegment } from '../../types';
 
@@ -12,16 +13,82 @@ interface EditOptionModalProps {
   initialOption: Option | null;
   dateContext: string;
   config: Config;
+  isGuest?: boolean;
+  callTime?: string;
 }
 
-const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSave, initialOption, dateContext, config }) => {
+const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSave, initialOption, dateContext, config, isGuest = false, callTime }) => {
   const [strategy, setStrategy] = useState<'direct' | 'hub'>('direct');
+// ... (skip lines 20-116)
+                <FlightInput
+                  key={i}
+                  label={`Flight Segment #${i + 1}`}
+                  value={seg}
+                  onChange={(val) => { const n = [...segments]; n[i] = val; setSegments(n); }}
+                  showRemove={segments.length > 1}
+                  onRemove={() => { const n = segments.filter((_, idx) => idx !== i); setSegments(n); }}
+                  onMoveUp={() => setSegments(moveItem(segments, i, i - 1))}
+                  onMoveDown={() => setSegments(moveItem(segments, i, i + 1))}
+                  isFirst={i === 0}
+                  isLast={i === segments.length - 1}
+                  config={config}
+                  dateContext={dateContext}
+                  isGuest={isGuest}
+                  targetTime={callTime}
+                />
+// ... (skip lines 132-172)
+                        <FlightInput
+                          key={i}
+                          label={`Inbound Option #${i + 1}`}
+                          value={seg}
+                          onChange={(val) => { const n = [...inbounds]; n[i] = val; setInbounds(n); }}
+                          showRemove={inbounds.length > 1}
+                          onRemove={() => { const n = inbounds.filter((_, idx) => idx !== i); setInbounds(n); }}
+                          onMoveUp={() => setInbounds(moveItem(inbounds, i, i - 1))}
+                          onMoveDown={() => setInbounds(moveItem(inbounds, i, i + 1))}
+                          isFirst={i === 0}
+                          isLast={i === inbounds.length - 1}
+                          config={config}
+                          dateContext={dateContext}
+                          defaultSearchFrom={config.homeBase}
+                          defaultSearchTo={hub}
+                          allowGround={false}
+                          isGuest={isGuest}
+                          targetTime={callTime}
+                        />
+// ... (skip lines 191-201)
+                        <FlightInput
+                          key={i}
+                          label={i === 0 ? "Primary Outbound" : `Alternative Outbound #${i}`}
+                          value={seg}
+                          onChange={(val) => { const n = [...outbounds]; n[i] = val; setOutbounds(n); }}
+                          showRemove={outbounds.length > 1}
+                          onRemove={() => { const n = outbounds.filter((_, idx) => idx !== i); setOutbounds(n); }}
+                          onMoveUp={() => setOutbounds(moveItem(outbounds, i, i - 1))}
+                          onMoveDown={() => setOutbounds(moveItem(outbounds, i, i + 1))}
+                          isFirst={i === 0}
+                          isLast={i === outbounds.length - 1}
+                          config={config}
+                          dateContext={dateContext}
+                          defaultSearchFrom={hub}
+                          defaultSearchTo={config.reserveBase}
+                          allowGround={true}
+                          isGuest={isGuest}
+                          targetTime={callTime}
+                        />
   const [hub, setHub] = useState('');
   // Direct Segments
   const [segments, setSegments] = useState<FlightSegment[]>([]);
   // Hub Strategy Parts
   const [inbounds, setInbounds] = useState<FlightSegment[]>([]);
   const [outbounds, setOutbounds] = useState<FlightSegment[]>([]);
+  const [recentHubs, setRecentHubs] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (isOpen) {
+      setRecentHubs(RecentAirports.get().filter(h => !COMMON_HUBS.includes(h)));
+    }
+  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && initialOption) {
@@ -42,6 +109,11 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSa
       setOutbounds([{ flight: '', dep: '', arr: '', status: '', depAirport: '', arrAirport: config.reserveBase, isPrimary: true }]);
     }
   }, [isOpen, initialOption, config]);
+
+  const handleHubChange = (val: string) => {
+    setHub(val);
+    if (val.length === 3) RecentAirports.add(val.toUpperCase());
+  };
 
   const handleSave = () => {
     let finalOpt: Option;
@@ -112,6 +184,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSa
                   isLast={i === segments.length - 1}
                   config={config}
                   dateContext={dateContext}
+                  isGuest={isGuest}
                 />
               ))}
               <button onClick={() => setSegments([...segments, { flight: '', dep: '', arr: '', status: '' }])} className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 font-bold hover:border-indigo-400 hover:text-indigo-500 transition-colors">
@@ -128,68 +201,87 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSa
                       {h}
                     </button>
                   ))}
+                  {recentHubs.map(h => (
+                    <div key={h} className="relative group">
+                      <button onClick={() => setHub(h)} className={`text-xs px-2 py-1 rounded border font-bold ${hub === h ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+                        {h}
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); RecentAirports.remove(h); setRecentHubs(RecentAirports.get().filter(x => !COMMON_HUBS.includes(x))); }}
+                        className="absolute -top-1 -right-1 bg-red-400 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity" title="Remove"
+                      >
+                        <X size={8} />
+                      </button>
+                    </div>
+                  ))}
                 </div>
                 <div className="flex items-center gap-2">
-                  <input className="w-24 border p-2 rounded font-bold uppercase" placeholder="HUB" value={hub} onChange={e => setHub(e.target.value.toUpperCase())} />
-                  <p className="text-[10px] text-indigo-400">Specify hub if not listed.</p>
+                  <input className="w-24 border p-2 rounded font-bold uppercase" placeholder="HUB" value={hub} onChange={e => handleHubChange(e.target.value.toUpperCase())} />
+                  <p className="text-[10px] text-indigo-400">Specify hub to see flight options.</p>
                 </div>
               </div>
 
-              <div>
-                <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2"><Plane size={14} /> Inbound Legs (To Hub)</h4>
-                <div className="pl-6 border-l-2 border-gray-200 ml-1">
-                  {inbounds.map((seg, i) => (
-                    <FlightInput
-                      key={i}
-                      label={`Inbound Option #${i + 1}`}
-                      value={seg}
-                      onChange={(val) => { const n = [...inbounds]; n[i] = val; setInbounds(n); }}
-                      showRemove={inbounds.length > 1}
-                      onRemove={() => { const n = inbounds.filter((_, idx) => idx !== i); setInbounds(n); }}
-                      onMoveUp={() => setInbounds(moveItem(inbounds, i, i - 1))}
-                      onMoveDown={() => setInbounds(moveItem(inbounds, i, i + 1))}
-                      isFirst={i === 0}
-                      isLast={i === inbounds.length - 1}
-                      config={config}
-                      dateContext={dateContext}
-                      defaultSearchFrom={config.homeBase}
-                      defaultSearchTo={hub}
-                      allowGround={false}
-                    />
-                  ))}
-                  <button onClick={() => setInbounds([...inbounds, { flight: '', dep: '', arr: '', status: '' }])} className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline">
-                    <Plus size={14} /> Add Inbound Option
-                  </button>
-                </div>
-              </div>
+              {hub && (
+                <>
+                  <div>
+                    <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2"><Plane size={14} /> Inbound Legs (To Hub)</h4>
+                    <div className="pl-6 border-l-2 border-gray-200 ml-1">
+                      {inbounds.map((seg, i) => (
+                        <FlightInput
+                          key={i}
+                          label={`Inbound Option #${i + 1}`}
+                          value={seg}
+                          onChange={(val) => { const n = [...inbounds]; n[i] = val; setInbounds(n); }}
+                          showRemove={inbounds.length > 1}
+                          onRemove={() => { const n = inbounds.filter((_, idx) => idx !== i); setInbounds(n); }}
+                          onMoveUp={() => setInbounds(moveItem(inbounds, i, i - 1))}
+                          onMoveDown={() => setInbounds(moveItem(inbounds, i, i + 1))}
+                          isFirst={i === 0}
+                          isLast={i === inbounds.length - 1}
+                          config={config}
+                          dateContext={dateContext}
+                          defaultSearchFrom={config.homeBase}
+                          defaultSearchTo={hub}
+                          allowGround={false}
+                          isGuest={isGuest}
+                        />
+                      ))}
+                      <button onClick={() => setInbounds([...inbounds, { flight: '', dep: '', arr: '', status: '' }])} className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline">
+                        <Plus size={14} /> Add Inbound Option
+                      </button>
+                    </div>
+                  </div>
 
-              <div>
-                <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2"><Split size={14} /> Outbound Options (From Hub)</h4>
-                <div className="pl-6 border-l-2 border-gray-200 ml-1">
-                  {outbounds.map((seg, i) => (
-                    <FlightInput
-                      key={i}
-                      label={i === 0 ? "Primary Outbound" : `Alternative Outbound #${i}`}
-                      value={seg}
-                      onChange={(val) => { const n = [...outbounds]; n[i] = val; setOutbounds(n); }}
-                      showRemove={outbounds.length > 1}
-                      onRemove={() => { const n = outbounds.filter((_, idx) => idx !== i); setOutbounds(n); }}
-                      onMoveUp={() => setOutbounds(moveItem(outbounds, i, i - 1))}
-                      onMoveDown={() => setOutbounds(moveItem(outbounds, i, i + 1))}
-                      isFirst={i === 0}
-                      isLast={i === outbounds.length - 1}
-                      config={config}
-                      dateContext={dateContext}
-                      defaultSearchFrom={hub}
-                      defaultSearchTo={config.reserveBase}
-                      allowGround={true}
-                    />
-                  ))}
-                  <button onClick={() => setOutbounds([...outbounds, { flight: '', dep: '', arr: '', status: '', isPrimary: false }])} className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline">
-                    <Plus size={14} /> Add Alternative Option
-                  </button>
-                </div>
-              </div>
+                  <div>
+                    <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2"><Split size={14} /> Outbound Options (From Hub)</h4>
+                    <div className="pl-6 border-l-2 border-gray-200 ml-1">
+                      {outbounds.map((seg, i) => (
+                        <FlightInput
+                          key={i}
+                          label={i === 0 ? "Primary Outbound" : `Alternative Outbound #${i}`}
+                          value={seg}
+                          onChange={(val) => { const n = [...outbounds]; n[i] = val; setOutbounds(n); }}
+                          showRemove={outbounds.length > 1}
+                          onRemove={() => { const n = outbounds.filter((_, idx) => idx !== i); setOutbounds(n); }}
+                          onMoveUp={() => setOutbounds(moveItem(outbounds, i, i - 1))}
+                          onMoveDown={() => setOutbounds(moveItem(outbounds, i, i + 1))}
+                          isFirst={i === 0}
+                          isLast={i === outbounds.length - 1}
+                          config={config}
+                          dateContext={dateContext}
+                          defaultSearchFrom={hub}
+                          defaultSearchTo={config.reserveBase}
+                          allowGround={true}
+                          isGuest={isGuest}
+                        />
+                      ))}
+                      <button onClick={() => setOutbounds([...outbounds, { flight: '', dep: '', arr: '', status: '', isPrimary: false }])} className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline">
+                        <Plus size={14} /> Add Alternative Option
+                      </button>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           )}
         </div>

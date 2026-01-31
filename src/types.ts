@@ -26,6 +26,7 @@ export interface FlightStatus {
     estimated?: string;
   };
   status?: string;
+  _retrievedAt?: number;
 }
 
 export interface EditContext {
@@ -97,6 +98,10 @@ export interface ReserveBlock {
   id: string;
   start: string;
   end: string;
+  homeBase?: string;
+  isDeleted?: boolean;
+  deletedAt?: number;
+  isArchived?: boolean;
 }
 
 export interface Config {

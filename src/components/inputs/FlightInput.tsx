@@ -20,6 +20,8 @@ interface FlightInputProps {
   defaultSearchFrom?: string;
   defaultSearchTo?: string;
   allowGround?: boolean;
+  isGuest?: boolean;
+  targetTime?: string;
 }
 
 const FlightInput: React.FC<FlightInputProps> = ({
@@ -36,7 +38,9 @@ const FlightInput: React.FC<FlightInputProps> = ({
   isLast,
   defaultSearchFrom,
   defaultSearchTo,
-  allowGround = true
+  allowGround = true,
+  isGuest = false,
+  targetTime
 }) => {
   // value = { flight: 'DL123', dep: 'HH:mm', arr: 'HH:mm', depAirport: 'ATL', arrAirport: 'LAX', ground: { duration: '1.5', hub: 'DTW' } }
   const [isSearching, setIsSearching] = useState(false);
@@ -53,6 +57,9 @@ const FlightInput: React.FC<FlightInputProps> = ({
   const [showRecentFrom, setShowRecentFrom] = useState(false);
   const [showRecentTo, setShowRecentTo] = useState(false);
 
+  const listRef = React.useRef<HTMLDivElement>(null);
+  const itemRefs = React.useRef<Map<number, HTMLDivElement>>(new Map());
+
   useEffect(() => {
     if (!showSearch) {
       setSearchParams(prev => ({
@@ -62,6 +69,65 @@ const FlightInput: React.FC<FlightInputProps> = ({
       }));
     }
   }, [defaultSearchFrom, defaultSearchTo, value?.depAirport, value?.arrAirport, showSearch]);
+
+  const getSuitability = (flightDateStr: string | undefined) => {
+    if (!targetTime || !flightDateStr || !dateContext) return { class: '', label: '' };
+
+    // Parse times
+    // targetTime is HH:MM on dateContext
+    const target = new Date(`${dateContext}T${targetTime}:00`);
+    const flight = new Date(flightDateStr); // ISO string from search result
+
+    const diffMinutes = (flight.getTime() - target.getTime()) / (1000 * 60);
+
+    // Sweet spot: 2-4 hours before target (arrive before target).
+    // Actually typically we want to calculate Arrival Time vs Call Time, but here we only have "Target Time" which is Call Time.
+    // And flights might be "Commute In" or "Commute Out".
+    // Assuming "Commute In", we want ARRIVAL to be before Target (Call Time).
+    // FlightInput is generic. Let's assume standard logic: 
+    // IF the user is searching, they are looking for a flight.
+    // Visual indicator: "Relative to Call Time".
+
+    // Let's use DEPARTURE time for "Commute In"? No, Arrival matters.
+    // Wait, the searchResult `f` legs have Departure and Arrival.
+    // We are iterating over `f`. 
+    // The previous implementation used `leg.departure.scheduledDate` for display.
+    // Suitability usually depends on ARRIVAL time matching 'Call Time' (Report).
+    // Let's calculate based on DEPARTURE for now as per plan ("Highlight flights that **depart** within a sweet spot").
+
+    if (diffMinutes >= -240 && diffMinutes <= -120) { // 2-4 hours before
+      return { class: 'bg-green-50 border-l-4 border-green-500', label: 'Sweet Spot' };
+    }
+    if (diffMinutes > -60) { // Less than 1 hour before or after
+      return { class: 'opacity-60', label: 'Tight/Late' };
+    }
+    if (diffMinutes < -360) { // > 6 hours before
+      return { class: 'opacity-70', label: 'Early' };
+    }
+    return { class: '', label: '' };
+  };
+
+  useEffect(() => {
+    if (searchResults && searchResults.length > 0 && targetTime && listRef.current) {
+      // Find best index
+      let bestIndex = -1;
+      let bestDiff = -Infinity; // We want closest to -120 (2h before) without going over?
+      // Let's pick the first one in the "Sweet Spot".
+
+      bestIndex = searchResults.findIndex(f => {
+        const leg = f.legs[0];
+        if (!leg?.departure.scheduledDate) return false;
+        const s = getSuitability(leg.departure.scheduledDate);
+        return s.label === 'Sweet Spot';
+      });
+
+      if (bestIndex !== -1) {
+        const el = itemRefs.current.get(bestIndex);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+    }
+  }, [searchResults, targetTime]);
+
 
   const handleSearch = async () => {
     setIsSearching(true);
@@ -137,9 +203,11 @@ const FlightInput: React.FC<FlightInputProps> = ({
       <div className="flex justify-between items-center mb-2">
         <span className="text-xs font-bold text-gray-500 uppercase">{label}</span>
         <div className="flex gap-2">
-          <button onClick={() => setShowSearch(!showSearch)} className="text-xs text-indigo-600 font-bold flex items-center gap-1 hover:bg-indigo-50 px-2 py-1 rounded">
-            <Search size={12} /> {showSearch ? 'Cancel Lookup' : 'Find Flight'}
-          </button>
+          {!isGuest && (
+            <button onClick={() => setShowSearch(!showSearch)} className="text-xs text-indigo-600 font-bold flex items-center gap-1 hover:bg-indigo-50 px-2 py-1 rounded">
+              <Search size={12} /> {showSearch ? 'Cancel Lookup' : 'Find Flight'}
+            </button>
+          )}
           {showRemove && <button onClick={onRemove} className="text-red-400 hover:text-red-600"><X size={14} /></button>}
         </div>
       </div>
@@ -187,16 +255,26 @@ const FlightInput: React.FC<FlightInputProps> = ({
             {isSearching ? 'Searching...' : 'Search Flights'}
           </button>
           {searchResults && (
-            <div className="max-h-32 overflow-y-auto border rounded bg-white">
+            <div ref={listRef} className="max-h-56 overflow-y-auto border rounded bg-white relative">
               {searchResults.length === 0 && <div className="p-2 text-xs text-gray-400">No flights found</div>}
               {searchResults.map((f, i) => {
                 const leg = f.legs[0];
                 const depGate = leg?.departure.gate;
                 const arrGate = leg?.arrival.gate;
+                const suitability = getSuitability(leg?.departure.scheduledDate);
+
                 return (
-                  <div key={i} onClick={() => selectFlight(f)} className="p-2 border-b text-xs hover:bg-indigo-50 cursor-pointer flex justify-between items-center">
+                  <div
+                    key={i}
+                    ref={el => { if (el) itemRefs.current.set(i, el); }}
+                    onClick={() => selectFlight(f)}
+                    className={`p-2 border-b text-xs cursor-pointer flex justify-between items-center hover:bg-indigo-50 ${suitability.class}`}
+                  >
                     <div className="flex flex-col">
-                      <span className="font-bold text-indigo-700">{leg?.carrierCodeIATA}{leg?.aircraftIdentification.flightNumber}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-bold text-indigo-700">{leg?.carrierCodeIATA}{leg?.aircraftIdentification.flightNumber}</span>
+                        {suitability.label && <span className="text-[9px] px-1 rounded bg-white border border-gray-200 text-gray-500 font-bold">{suitability.label}</span>}
+                      </div>
                       <span className="text-[9px] text-gray-400">{leg?.departureAirportCode} → {leg?.arrivalAirportCode}</span>
                     </div>
                     <div className="text-right">

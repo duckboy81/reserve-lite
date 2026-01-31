@@ -37,5 +37,18 @@ export const AuthService = {
   },
   logout: () => {
     localStorage.removeItem('alpa_auth');
+    localStorage.removeItem('guest_mode');
+    window.location.reload();
+  },
+  setGuestMode: () => {
+    localStorage.setItem('guest_mode', 'true');
+  },
+  isGuest: (): boolean => {
+    return localStorage.getItem('guest_mode') === 'true';
+  },
+  isAuthenticated: (): boolean => {
+    const token = AuthService.getToken();
+    const guest = AuthService.isGuest();
+    return !!token || guest;
   }
 };

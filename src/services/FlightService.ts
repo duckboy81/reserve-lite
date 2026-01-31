@@ -1,25 +1,37 @@
 import { API_CONFIG, DEFAULT_CONFIG, DEFAULT_SEARCH_PARAMS } from '../config/constants';
 import { AuthService } from './AuthService';
 import { FlightSegment, FlightStatus, SearchResult } from '../types';
+import { db } from '../db/ReserveDatabase';
 
-interface CachedItem {
-  timestamp: number;
-  data: FlightStatus;
-}
+
 
 export const FlightService = {
-  getCachedStatus: (flightKey: string): FlightStatus | null => {
-    const cache = JSON.parse(localStorage.getItem('flight_status_cache') || '{}');
-    const cachedItem = cache[flightKey] as CachedItem | undefined;
-    if (cachedItem && Date.now() - cachedItem.timestamp < API_CONFIG.CACHE_DURATION_MS) return cachedItem.data;
-    return null;
+  getCachedStatus: async (flightKey: string): Promise<FlightStatus | null> => {
+    try {
+      const cachedItem = await db.flightCache.get(flightKey);
+      if (cachedItem && Date.now() - cachedItem.timestamp < API_CONFIG.CACHE_DURATION_MS) {
+        return { ...cachedItem.data, _retrievedAt: cachedItem.timestamp };
+      }
+      return null;
+    } catch (e) {
+      console.error("Cache read error", e);
+      return null;
+    }
   },
-  setCachedStatus: (flightKey: string, data: FlightStatus) => {
-    const cache = JSON.parse(localStorage.getItem('flight_status_cache') || '{}');
-    cache[flightKey] = { timestamp: Date.now(), data: data };
-    localStorage.setItem('flight_status_cache', JSON.stringify(cache));
+  setCachedStatus: async (flightKey: string, data: FlightStatus) => {
+    try {
+      await db.flightCache.put({
+        flightNumber: flightKey,
+        timestamp: Date.now(),
+        data: data
+      });
+    } catch (e) {
+      console.error("Cache write error", e);
+    }
   },
   buildInfoPayload: (flightObj: FlightSegment, dateStr: string) => {
+    // Basic regex for parsing carrier and flight number, e.g. "DL123"
+    // Assuming simple format for now.
     const match = flightObj.flight.match(/([A-Z0-9]{2})(\d+)/);
     if (!match) return null;
     return {
@@ -43,7 +55,16 @@ export const FlightService = {
         body: JSON.stringify(validPayloads)
       });
       if (!response.ok) return null;
-      return await response.json();
+      const data = await response.json();
+      // Inject timestamp
+      const now = Date.now();
+      if (Array.isArray(data)) {
+        return data.map((group: any) => ({
+          ...group,
+          legs: group.legs.map((leg: FlightStatus) => ({ ...leg, _retrievedAt: now }))
+        }));
+      }
+      return data;
     } catch (e) { return null; }
   },
   searchFlights: async (from: string, to: string, date: string): Promise<{ flights: SearchResult[] }> => {
