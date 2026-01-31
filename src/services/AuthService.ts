@@ -38,10 +38,14 @@ export const AuthService = {
   logout: () => {
     localStorage.removeItem('alpa_auth');
     localStorage.removeItem('guest_mode');
-    window.location.reload();
+    // window.location.reload(); // Removed to preserve state
   },
   setGuestMode: () => {
     localStorage.setItem('guest_mode', 'true');
+  },
+  clearGuestMode: () => {
+    localStorage.removeItem('guest_mode');
+    // Do not reload, let App handle state
   },
   isGuest: (): boolean => {
     return localStorage.getItem('guest_mode') === 'true';

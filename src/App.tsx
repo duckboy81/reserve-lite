@@ -38,9 +38,10 @@ export default function App() {
   const [loading, setLoading] = useState<boolean>(false);
 
   // Confirmation Modal State
-  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; type: 'commit' | 'discard' | 'logout' | null }>({ isOpen: false, type: null });
+  // Confirmation Modal State
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; type: 'commit' | 'discard' | 'logout' | 'paste' | null }>({ isOpen: false, type: null });
+  const [pasteContext, setPasteContext] = useState<{ rowId: string } | null>(null);
 
-  // --- INIT ---
   // --- INIT ---
   useEffect(() => {
     const initApp = async () => {
@@ -100,6 +101,30 @@ export default function App() {
     setStagingData(null);
     setHistory([]); setFuture([]);
     setIsEditMode(false);
+    setConfirmModal({ isOpen: false, type: null });
+  };
+
+  const executeLogout = () => {
+    AuthService.logout();
+    setUser(null);
+    setConfirmModal({ isOpen: false, type: null });
+  };
+
+  const executeGuestLogin = () => {
+    AuthService.clearGuestMode();
+    setUser(null); // This triggers the modal overlay without reloading
+  };
+
+  const executePaste = () => {
+    if (!pasteContext || !clipboardPlan) return;
+    const { rowId } = pasteContext;
+
+    modifyOptions(rowId, (options) => {
+      options.length = 0;
+      options.push(...JSON.parse(JSON.stringify(clipboardPlan)));
+    });
+
+    setPasteContext(null);
     setConfirmModal({ isOpen: false, type: null });
   };
 
@@ -198,25 +223,14 @@ export default function App() {
   const handlePastePlan = (rowId: string, targetOptions: Option[]) => {
     if (!clipboardPlan) return;
 
-    const doPaste = () => {
+    if (targetOptions.length > 0) {
+      setPasteContext({ rowId });
+      setConfirmModal({ isOpen: true, type: 'paste' });
+    } else {
       modifyOptions(rowId, (options) => {
-        // Clear existing and paste new
-        options.length = 0; // Clear array in place
+        options.length = 0;
         options.push(...JSON.parse(JSON.stringify(clipboardPlan)));
       });
-    };
-
-    if (targetOptions.length > 0) {
-      // We need an intermediate step for confirmation, but for now using window.confirm as a quick implementation 
-      // or we can reuse ConfirmModal if we wire it up correctly. 
-      // Let's wire it up to ConfirmModal state but we need a custom callback.
-      // Actually, the requirements say "Be sure to have users confirm their intent".
-      // Let's use a simpler approach: 
-      if (window.confirm("This hour already has a plan. Are you sure you want to overwrite it?")) {
-        doPaste();
-      }
-    } else {
-      doPaste();
     }
   };
 
@@ -250,224 +264,240 @@ export default function App() {
       return;
     }
     setLoading(true);
-    let allFlights: FlightSegment[] = [];
-    const sourceData = isEditMode && stagingData ? stagingData : scheduleData;
+    try {
+      let allFlights: FlightSegment[] = [];
+      const sourceData = isEditMode && stagingData ? stagingData : scheduleData;
 
-    Object.values(sourceData).forEach(airportRows => {
-      airportRows.forEach(row => {
-        row.options.forEach(opt => {
-          if (opt.segments) opt.segments.forEach(s => { if (s.flight) allFlights.push(s); });
-          if (opt.inbound) (Array.isArray(opt.inbound) ? opt.inbound : [opt.inbound]).forEach(s => { if (s.flight) allFlights.push(s); });
-          if (opt.outbound) opt.outbound.forEach(s => { if (s.flight) allFlights.push(s); });
+      Object.values(sourceData).forEach(airportRows => {
+        airportRows.forEach(row => {
+          row.options.forEach(opt => {
+            if (opt.segments) opt.segments.forEach(s => { if (s.flight) allFlights.push(s); });
+            if (opt.inbound) (Array.isArray(opt.inbound) ? opt.inbound : [opt.inbound]).forEach(s => { if (s.flight) allFlights.push(s); });
+            if (opt.outbound) opt.outbound.forEach(s => { if (s.flight) allFlights.push(s); });
+          });
         });
       });
-    });
 
-    const uniqueFlights = [...new Set(allFlights.map(f => f.flight))].map(fNum => {
-      return allFlights.find(obj => obj.flight === fNum);
-    }).filter((f): f is FlightSegment => !!f);
+      const uniqueFlights = [...new Set(allFlights.map(f => f.flight))].map(fNum => {
+        return allFlights.find(obj => obj.flight === fNum);
+      }).filter((f): f is FlightSegment => !!f);
 
-    const newStatuses = { ...flightStatuses };
-    const flightsToFetch: FlightSegment[] = [];
+      const newStatuses = { ...flightStatuses };
+      const flightsToFetch: FlightSegment[] = [];
 
-    await Promise.all(uniqueFlights.map(async (f) => {
-      const cached = await FlightService.getCachedStatus(f.flight);
-      if (cached) newStatuses[f.flight] = cached;
-      else flightsToFetch.push(f);
-    }));
+      await Promise.all(uniqueFlights.map(async (f) => {
+        const cached = await FlightService.getCachedStatus(f.flight);
+        if (cached) newStatuses[f.flight] = cached;
+        else flightsToFetch.push(f);
+      }));
 
-    if (flightsToFetch.length > 0) {
-      const chunkSize = 15;
-      const today = new Date().toISOString().split('T')[0] || '';
-      for (let i = 0; i < flightsToFetch.length; i += chunkSize) {
-        const batch = flightsToFetch.slice(i, i + chunkSize);
-        const apiResults = await FlightService.fetchStatuses(batch, today);
-        if (apiResults) {
-          apiResults.forEach((res) => {
-            if (res.legs && res.legs.length > 0) {
-              const leg = res.legs[0];
-              if (leg) {
-                const key = `${leg.carrierCodeIATA}${leg.aircraftIdentification.flightNumber}`;
-                FlightService.setCachedStatus(key, leg);
-                newStatuses[key] = leg;
+      if (flightsToFetch.length > 0) {
+        const chunkSize = 15;
+        const today = new Date().toISOString().split('T')[0] || '';
+        for (let i = 0; i < flightsToFetch.length; i += chunkSize) {
+          const batch = flightsToFetch.slice(i, i + chunkSize);
+          const apiResults = await FlightService.fetchStatuses(batch, today);
+          if (apiResults) {
+            apiResults.forEach((res) => {
+              if (res.legs && res.legs.length > 0) {
+                const leg = res.legs[0];
+                if (leg) {
+                  const key = `${leg.carrierCodeIATA}${leg.aircraftIdentification.flightNumber}`;
+                  FlightService.setCachedStatus(key, leg);
+                  newStatuses[key] = leg;
+                }
               }
-            }
-          });
+            });
+          }
         }
       }
+
+      setFlightStatuses(newStatuses);
+    } catch (e) {
+      console.error("Error refreshing flights:", e);
+    } finally {
+      setLoading(false);
     }
-    const executeLogout = () => {
-      AuthService.logout();
-      setUser(null);
-      setConfirmModal({ isOpen: false, type: null });
-    };
+  };
 
-    // So I should probably remove this function entirely or update UI to remove the button.
-    // I will remove the button in the UI separately.
-    // For now, leaving the function but updating it to not break if called.
-    localStorage.removeItem('reserve_lite_data_v2');
-    localStorage.removeItem('flight_status_cache');
-    window.location.reload();
+  // --- RENDERING ---
+
+  const activeData = (isEditMode && stagingData) ? stagingData : scheduleData;
+
+  let timelineRows: TimelineRowData[] = [];
+  const activeBlock = reserveBlocks.find(b => b.id === activeBlockId);
+
+  if (activeBlock) {
+    const sDate = activeBlock.start.split('T')[0] || '';
+    const eDate = activeBlock.end.split('T')[0] || '';
+    if (sDate && eDate) {
+      timelineRows = generateTimeline(sDate, eDate, config);
+
+      timelineRows.forEach(row => {
+        const storedRow = activeData[airport]?.find((r: RowData) => r.key === row.key);
+        if (storedRow) row.options = storedRow.options;
+      });
+    }
   }
-};
 
-// --- RENDERING ---
 
-const activeData = (isEditMode && stagingData) ? stagingData : scheduleData;
 
-let timelineRows: TimelineRowData[] = [];
-const activeBlock = reserveBlocks.find(b => b.id === activeBlockId);
+  return (
+    <div className={`min-h-screen font-sans text-gray-900 pb-20 ${isEditMode ? 'bg-gray-100' : 'bg-white'}`}>
 
-if (activeBlock) {
-  const sDate = activeBlock.start.split('T')[0] || '';
-  const eDate = activeBlock.end.split('T')[0] || '';
-  if (sDate && eDate) {
-    timelineRows = generateTimeline(sDate, eDate, config);
-
-    timelineRows.forEach(row => {
-      const storedRow = activeData[airport]?.find((r: RowData) => r.key === row.key);
-      if (storedRow) row.options = storedRow.options;
-    });
-  }
-}
-
-if (!user) return <LoginScreen onLogin={setUser} />;
-
-return (
-  <div className={`min-h-screen font-sans text-gray-900 pb-20 ${isEditMode ? 'bg-gray-100' : 'bg-white'}`}>
-
-    {/* Header */}
-    <div className={`sticky top-0 z-30 border-b shadow-sm transition-colors ${isEditMode ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-200'}`}>
-      {isEditMode && (
-        <div className="bg-yellow-400 text-yellow-900 text-xs font-bold text-center py-0.5">
-          EDITING MODE — Unsaved Changes
-        </div>
-      )}
-      <div className="max-w-6xl mx-auto px-4 py-2">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="bg-indigo-600 text-white p-1 rounded"><Plane size={16} /></div>
-            <span className="font-bold text-sm tracking-tight hidden sm:inline">Reserve<span className="text-indigo-600">Lite</span></span>
-            <div className="h-4 w-px bg-gray-300 mx-2"></div>
-            <div className="flex bg-gray-100 p-0.5 rounded-lg">
-              {['LAX', 'ONT', 'SNA', 'BUR'].map((code) => (
-                <button key={code} onClick={() => setAirport(code)}
-                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${airport === code ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
-                  {code}
-                </button>
-              ))}
-            </div>
+      {/* Header */}
+      <div className={`sticky top-0 z-100 border-b shadow-sm transition-colors ${isEditMode ? 'bg-yellow-50 border-yellow-200' : 'bg-white border-gray-200'}`}>
+        {isEditMode && (
+          <div className="bg-yellow-400 text-yellow-900 text-xs font-bold text-center py-0.5">
+            EDITING MODE — Unsaved Changes
           </div>
+        )}
+        <div className="max-w-6xl mx-auto px-4 py-2">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2">
+              <div className="bg-indigo-600 text-white p-1 rounded"><Plane size={16} /></div>
+              <span className="font-bold text-sm tracking-tight hidden sm:inline">Reserve<span className="text-indigo-600">Lite</span></span>
+              <div className="h-4 w-px bg-gray-300 mx-2"></div>
+              <div className="flex bg-gray-100 p-0.5 rounded-lg">
+                {['LAX', 'ONT', 'SNA', 'BUR'].map((code) => (
+                  <button key={code} onClick={() => setAirport(code)}
+                    className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${airport === code ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
+                    {code}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-          {activeBlock && (
-            <button
-              onClick={() => setModals({ ...modals, blocks: true })}
-              className="flex flex-col items-center hover:bg-gray-50 px-2 rounded transition-colors group"
-            >
-              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide group-hover:text-indigo-500">Active Block</span>
-              <span className="text-xs font-bold text-indigo-600 flex items-center gap-1">
-                {new Date(activeBlock.start).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - {new Date(activeBlock.end).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                <span className="bg-indigo-50 px-1 rounded ml-1 border border-indigo-100">{activeBlock.homeBase || config.homeBase}</span>
-              </span>
-            </button>
-          )}
-
-          <div className="flex items-center gap-2">
-            {!isEditMode ? (
-              <>
-                <button onClick={enterEditMode} className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full font-bold text-xs hover:bg-blue-100 transition-colors">
-                  <Edit3 size={14} /> Edit Plan
-                </button>
-                <div className="h-4 w-px bg-gray-300 mx-1"></div>
-                <button onClick={handleGlobalRefresh} className={`p-2 rounded-full hover:bg-gray-100 text-gray-500 ${loading ? 'animate-spin' : ''}`} title="Refresh All Flights">
-                  <RefreshCw size={16} />
-                </button>
-                <button onClick={() => setModals({ ...modals, config: true })} className="p-2 text-gray-400 hover:text-gray-600"><Settings size={16} /></button>
-
-              </>
-            ) : (
-              <>
-                <button onClick={handleUndo} disabled={history.length === 0} className="p-2 text-gray-500 disabled:opacity-30 hover:bg-gray-200 rounded-full"><Undo size={16} /></button>
-                <button onClick={handleRedo} disabled={future.length === 0} className="p-2 text-gray-500 disabled:opacity-30 hover:bg-gray-200 rounded-full"><Redo size={16} /></button>
-                <div className="h-4 w-px bg-gray-300 mx-1"></div>
-                <button onClick={() => setConfirmModal({ isOpen: true, type: 'discard' })} className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 text-gray-600 rounded-full font-bold text-xs hover:bg-gray-300">
-                  Discard
-                </button>
-                <button onClick={() => setConfirmModal({ isOpen: true, type: 'commit' })} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-full font-bold text-xs hover:bg-green-700 shadow-sm">
-                  <Save size={14} /> Save
-                </button>
-              </>
+            {activeBlock && (
+              <button
+                onClick={() => setModals({ ...modals, blocks: true })}
+                className="flex flex-col items-center hover:bg-gray-50 px-2 rounded transition-colors group"
+              >
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide group-hover:text-indigo-500">Active Block</span>
+                <span className="text-xs font-bold text-indigo-600 flex items-center gap-1">
+                  {new Date(activeBlock.start).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - {new Date(activeBlock.end).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  <span className="bg-indigo-50 px-1 rounded ml-1 border border-indigo-100">{activeBlock.homeBase || config.homeBase}</span>
+                </span>
+              </button>
             )}
-            <button onClick={() => setConfirmModal({ isOpen: true, type: 'logout' })} className="p-2 rounded-full hover:bg-red-50 text-red-500 ml-2" title="Logout">
-              <LogOut size={16} />
-            </button>
+
+            <div className="flex items-center gap-2">
+              {!isEditMode ? (
+                <>
+                  <button onClick={enterEditMode} className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full font-bold text-xs hover:bg-blue-100 transition-colors">
+                    <Edit3 size={14} /> Edit Plan
+                  </button>
+                  <div className="h-4 w-px bg-gray-300 mx-1"></div>
+                  <button onClick={handleGlobalRefresh} className={`p-2 rounded-full hover:bg-gray-100 text-gray-500 ${loading ? 'animate-spin' : ''}`} title="Refresh All Flights">
+                    <RefreshCw size={16} />
+                  </button>
+                  <button onClick={() => setModals({ ...modals, config: true })} className="p-2 text-gray-400 hover:text-gray-600"><Settings size={16} /></button>
+
+                </>
+              ) : (
+                <>
+                  <button onClick={handleUndo} disabled={history.length === 0} className="p-2 text-gray-500 disabled:opacity-30 hover:bg-gray-200 rounded-full"><Undo size={16} /></button>
+                  <button onClick={handleRedo} disabled={future.length === 0} className="p-2 text-gray-500 disabled:opacity-30 hover:bg-gray-200 rounded-full"><Redo size={16} /></button>
+                  <div className="h-4 w-px bg-gray-300 mx-1"></div>
+                  <button onClick={() => setConfirmModal({ isOpen: true, type: 'discard' })} className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 text-gray-600 rounded-full font-bold text-xs hover:bg-gray-300">
+                    Discard
+                  </button>
+                  <button onClick={() => setConfirmModal({ isOpen: true, type: 'commit' })} className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-full font-bold text-xs hover:bg-green-700 shadow-sm">
+                    <Save size={14} /> Save
+                  </button>
+                </>
+              )}
+              {user?.id === 'GUEST' ? (
+                <button
+                  onClick={executeGuestLogin}
+                  className="bg-indigo-600 text-white px-3 py-1.5 rounded-full font-bold text-xs hover:bg-indigo-700 ml-2 shadow-sm"
+                >
+                  Log In
+                </button>
+              ) : (
+                <button onClick={() => setConfirmModal({ isOpen: true, type: 'logout' })} className="p-2 rounded-full hover:bg-red-50 text-red-500 ml-2" title="Logout">
+                  <LogOut size={16} />
+                </button>
+              )}
+            </div>
           </div>
         </div>
       </div>
-    </div>
 
-    <main className="max-w-6xl mx-auto min-h-125 border-x border-gray-100 shadow-sm bg-white">
-      {timelineRows.length > 0 ? timelineRows.map((row) => (
-        <TimelineRow
-          key={row.key}
-          row={row}
-          isEdit={isEditMode}
-          onAddOption={handleAddOption}
-          onDeleteOption={deleteOption}
-          onEditOption={handleEditOption}
-          onReorderOptions={reorderOptions}
-          flightStatuses={flightStatuses}
-          onCopyPlan={handleCopyPlan}
-          onPastePlan={(rowId) => handlePastePlan(rowId, row.options)}
-          hasClipboard={!!clipboardPlan}
-        />
-      )) : (
-        <div className="flex flex-col items-center justify-center py-20 text-gray-400">
-          <Calendar size={48} className="mb-4 text-gray-200" />
-          <p>No active reserve block selected.</p>
-          <button onClick={() => setModals({ ...modals, blocks: true })} className="mt-4 text-indigo-600 font-bold hover:underline">Add a Reserve Block</button>
+      <main className="max-w-6xl mx-auto min-h-125 border-x border-gray-100 shadow-sm bg-white">
+        {timelineRows.length > 0 ? timelineRows.map((row) => (
+          <TimelineRow
+            key={row.key}
+            row={row}
+            isEdit={isEditMode}
+            onAddOption={handleAddOption}
+            onDeleteOption={deleteOption}
+            onEditOption={handleEditOption}
+            onReorderOptions={reorderOptions}
+            flightStatuses={flightStatuses}
+            onCopyPlan={handleCopyPlan}
+            onPastePlan={(rowId) => handlePastePlan(rowId, row.options)}
+            hasClipboard={!!clipboardPlan}
+          />
+        )) : (
+          <div className="flex flex-col items-center justify-center py-20 text-gray-400">
+            <Calendar size={48} className="mb-4 text-gray-200" />
+            <p>No active reserve block selected.</p>
+            <button onClick={() => setModals({ ...modals, blocks: true })} className="mt-4 text-indigo-600 font-bold hover:underline">Add a Reserve Block</button>
+          </div>
+        )}
+      </main>
+
+      <EditOptionModal
+        isOpen={modals.edit}
+        onClose={() => setModals({ ...modals, edit: false })}
+        onSave={saveOptionToStaging}
+        initialOption={editContext ? editContext.option : null}
+        dateContext={editContext ? editContext.dateContext : ''}
+        config={config}
+        isGuest={AuthService.isGuest()}
+      />
+
+      <ConfigModal
+        isOpen={modals.config}
+        onClose={() => setModals({ ...modals, config: false })}
+        config={config}
+        onSave={(c: Config) => { setConfig(c); localStorage.setItem('reserve_lite_config', JSON.stringify(c)); setModals({ ...modals, config: false }); }}
+      />
+
+      <BlockManager
+        isOpen={modals.blocks}
+        onClose={() => setModals({ ...modals, blocks: false })}
+        blocks={reserveBlocks}
+        activeId={activeBlockId}
+        onSelect={setActiveBlockId}
+        onAdd={handleBlockAdd}
+        onEdit={handleBlockEdit}
+        onDelete={handleBlockDelete}
+      />
+
+      <ConfirmModal
+        isOpen={confirmModal.isOpen}
+        title={confirmModal.type === 'commit' ? 'Save Changes?' : (confirmModal.type === 'logout' ? 'Confirm Logout' : (confirmModal.type === 'paste' ? 'Overwrite Plan?' : 'Discard Changes?'))}
+        message={confirmModal.type === 'commit' ? 'This will overwrite your existing schedule. Are you sure?' : (confirmModal.type === 'logout' ? 'Are you sure you want to log out?' : (confirmModal.type === 'paste' ? 'This hour already has a plan. Overwrite it?' : 'All unsaved changes in this session will be lost. Are you sure?'))}
+        onConfirm={() => {
+          if (confirmModal.type === 'commit') executeCommit();
+          else if (confirmModal.type === 'logout') executeLogout();
+          else if (confirmModal.type === 'paste') executePaste();
+          else executeDiscard();
+        }}
+        onCancel={() => setConfirmModal({ isOpen: false, type: null })}
+        confirmText={confirmModal.type === 'commit' ? 'Save' : (confirmModal.type === 'logout' ? 'Logout' : (confirmModal.type === 'paste' ? 'Overwrite' : 'Discard'))}
+        confirmColor={confirmModal.type === 'commit' ? 'bg-green-600' : (confirmModal.type === 'paste' ? 'bg-indigo-600' : 'bg-red-600')}
+      />
+
+      {/* Login Overlay */}
+      {!user && (
+        <div className="fixed inset-0 z-200 backdrop-blur-sm bg-black/30 flex items-center justify-center">
+          <LoginScreen onLogin={setUser} />
         </div>
       )}
-    </main>
 
-    <EditOptionModal
-      isOpen={modals.edit}
-      onClose={() => setModals({ ...modals, edit: false })}
-      onSave={saveOptionToStaging}
-      initialOption={editContext ? editContext.option : null}
-      dateContext={editContext ? editContext.dateContext : ''}
-      config={config}
-      isGuest={AuthService.isGuest()}
-    />
-
-    <ConfigModal
-      isOpen={modals.config}
-      onClose={() => setModals({ ...modals, config: false })}
-      config={config}
-      onSave={(c: Config) => { setConfig(c); localStorage.setItem('reserve_lite_config', JSON.stringify(c)); setModals({ ...modals, config: false }); }}
-    />
-
-    <BlockManager
-      isOpen={modals.blocks}
-      onClose={() => setModals({ ...modals, blocks: false })}
-      blocks={reserveBlocks}
-      activeId={activeBlockId}
-      onSelect={setActiveBlockId}
-      onAdd={handleBlockAdd}
-      onEdit={handleBlockEdit}
-      onDelete={handleBlockDelete}
-    />
-
-    <ConfirmModal
-      isOpen={confirmModal.isOpen}
-      title={confirmModal.type === 'commit' ? 'Save Changes?' : (confirmModal.type === 'logout' ? 'Confirm Logout' : 'Discard Changes?')}
-      message={confirmModal.type === 'commit' ? 'This will overwrite your existing schedule. Are you sure?' : (confirmModal.type === 'logout' ? 'Are you sure you want to log out?' : 'All unsaved changes in this session will be lost. Are you sure?')}
-      onConfirm={confirmModal.type === 'commit' ? executeCommit : (confirmModal.type === 'logout' ? executeLogout : executeDiscard)}
-      onCancel={() => setConfirmModal({ isOpen: false, type: null })}
-      confirmText={confirmModal.type === 'commit' ? 'Save' : (confirmModal.type === 'logout' ? 'Logout' : 'Discard')}
-      confirmColor={confirmModal.type === 'commit' ? 'bg-green-600' : 'bg-red-600'}
-    />
-
-  </div>
-);
+    </div>
+  );
 }

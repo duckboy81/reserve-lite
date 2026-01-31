@@ -91,21 +91,14 @@ const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
         )}
 
         {/* Footer Info Row */}
-        <div className="flex justify-between items-center mt-1 pt-1">
-          <div>
-            {option.type === 'hub-strategy' && (
-              <div className="bg-purple-50 border border-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
-                <Split size={10} /> Via {option.hub}
-              </div>
-            )}
-            {option.type !== 'hub-strategy' && option.label && (
-              <div className="bg-purple-50 border border-purple-100 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                {option.label}
-              </div>
-            )}
+        {option.type === 'hub-strategy' && (
+          <div className="absolute -bottom-3 left-3 bg-purple-100 border border-purple-200 text-purple-700 text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center gap-1 shadow-sm z-20">
+              <Split size={10} /> Via {option.hub}
           </div>
-          <div className="flex items-baseline gap-1 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Land:</span>
+        )}
+        <div className="absolute -bottom-3 right-4 bg-white border border-gray-200 shadow-sm rounded-full px-3 py-1 flex items-center gap-3 z-20">
+          <div className="flex items-baseline gap-1">
+            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Pri:</span>
             <span className="font-mono font-bold text-xs text-gray-900">{primaryArr}</span>
           </div>
         </div>

@@ -46,7 +46,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({
     setStart(block.start.split('T')[0] || '');
     setEnd(block.end.split('T')[0] || '');
     setHomeBase(block.homeBase || DEFAULT_CONFIG.homeBase);
-    setIsEditing(false); // New block
+    setIsEditing(false);
     setShowForm(true);
   };
 

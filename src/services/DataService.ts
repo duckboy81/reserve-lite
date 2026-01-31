@@ -125,8 +125,7 @@ export const DataService = {
         // Trash Cleanup (90 days)
         const ninetyDaysAgo = Date.now() - (90 * 24 * 60 * 60 * 1000);
         await db.blocks
-            .where('isDeleted').equals(true as any)
-            .filter(b => !!b.deletedAt && b.deletedAt < ninetyDaysAgo)
+            .filter(b => b.isDeleted === true && !!b.deletedAt && b.deletedAt < ninetyDaysAgo)
             .delete();
 
         // Archive Auto-Move

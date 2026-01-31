@@ -70,38 +70,27 @@ const FlightInput: React.FC<FlightInputProps> = ({
     }
   }, [defaultSearchFrom, defaultSearchTo, value?.depAirport, value?.arrAirport, showSearch]);
 
+  /* 
+   * Determines if a flight departure time is suitable based on the target call time.
+   * Ideally, for a commute-in flight, we want it to arrive or depart within a safe window before the call time.
+   * Current Logic: Highlight flights that depart 2-4 hours before the target time.
+   */
   const getSuitability = (flightDateStr: string | undefined) => {
     if (!targetTime || !flightDateStr || !dateContext) return { class: '', label: '' };
 
-    // Parse times
-    // targetTime is HH:MM on dateContext
     const target = new Date(`${dateContext}T${targetTime}:00`);
-    const flight = new Date(flightDateStr); // ISO string from search result
+    const flight = new Date(flightDateStr);
 
+    // Difference in minutes (negative means flight is before target)
     const diffMinutes = (flight.getTime() - target.getTime()) / (1000 * 60);
-
-    // Sweet spot: 2-4 hours before target (arrive before target).
-    // Actually typically we want to calculate Arrival Time vs Call Time, but here we only have "Target Time" which is Call Time.
-    // And flights might be "Commute In" or "Commute Out".
-    // Assuming "Commute In", we want ARRIVAL to be before Target (Call Time).
-    // FlightInput is generic. Let's assume standard logic: 
-    // IF the user is searching, they are looking for a flight.
-    // Visual indicator: "Relative to Call Time".
-
-    // Let's use DEPARTURE time for "Commute In"? No, Arrival matters.
-    // Wait, the searchResult `f` legs have Departure and Arrival.
-    // We are iterating over `f`. 
-    // The previous implementation used `leg.departure.scheduledDate` for display.
-    // Suitability usually depends on ARRIVAL time matching 'Call Time' (Report).
-    // Let's calculate based on DEPARTURE for now as per plan ("Highlight flights that **depart** within a sweet spot").
 
     if (diffMinutes >= -240 && diffMinutes <= -120) { // 2-4 hours before
       return { class: 'bg-green-50 border-l-4 border-green-500', label: 'Sweet Spot' };
     }
-    if (diffMinutes > -60) { // Less than 1 hour before or after
+    if (diffMinutes > -60) { // Less than 1 hour before (too tight) or after call time (late)
       return { class: 'opacity-60', label: 'Tight/Late' };
     }
-    if (diffMinutes < -360) { // > 6 hours before
+    if (diffMinutes < -360) { // > 6 hours before (too early)
       return { class: 'opacity-70', label: 'Early' };
     }
     return { class: '', label: '' };
@@ -109,12 +98,8 @@ const FlightInput: React.FC<FlightInputProps> = ({
 
   useEffect(() => {
     if (searchResults && searchResults.length > 0 && targetTime && listRef.current) {
-      // Find best index
-      let bestIndex = -1;
-      let bestDiff = -Infinity; // We want closest to -120 (2h before) without going over?
-      // Let's pick the first one in the "Sweet Spot".
-
-      bestIndex = searchResults.findIndex(f => {
+      // Find the first flight in the "Sweet Spot" to auto-scroll to
+      const bestIndex = searchResults.findIndex(f => {
         const leg = f.legs[0];
         if (!leg?.departure.scheduledDate) return false;
         const s = getSuitability(leg.departure.scheduledDate);
@@ -203,11 +188,22 @@ const FlightInput: React.FC<FlightInputProps> = ({
       <div className="flex justify-between items-center mb-2">
         <span className="text-xs font-bold text-gray-500 uppercase">{label}</span>
         <div className="flex gap-2">
-          {!isGuest && (
-            <button onClick={() => setShowSearch(!showSearch)} className="text-xs text-indigo-600 font-bold flex items-center gap-1 hover:bg-indigo-50 px-2 py-1 rounded">
+          <div className="relative group/tooltip">
+            <button
+              onClick={() => !isGuest && setShowSearch(!showSearch)}
+              className={`text-xs font-bold flex items-center gap-1 px-2 py-1 rounded transition-colors ${isGuest
+                ? 'text-gray-400 cursor-not-allowed bg-gray-100 hover:bg-gray-100'
+                : 'text-indigo-600 hover:bg-indigo-50 cursor-pointer'
+                }`}
+            >
               <Search size={12} /> {showSearch ? 'Cancel Lookup' : 'Find Flight'}
             </button>
-          )}
+            {isGuest && (
+              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-sm opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+                Sign in to use flight search
+              </span>
+            )}
+          </div>
           {showRemove && <button onClick={onRemove} className="text-red-400 hover:text-red-600"><X size={14} /></button>}
         </div>
       </div>
