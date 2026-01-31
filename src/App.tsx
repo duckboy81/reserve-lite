@@ -437,9 +437,7 @@ return (
       initialOption={editContext ? editContext.option : null}
       dateContext={editContext ? editContext.dateContext : ''}
       config={config}
-      config={config}
       isGuest={AuthService.isGuest()}
-      callTime={editContext ? editContext.rowId.split('T')[1] : undefined}
     />
 
     <ConfigModal

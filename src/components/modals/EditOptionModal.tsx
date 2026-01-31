@@ -14,68 +14,10 @@ interface EditOptionModalProps {
   dateContext: string;
   config: Config;
   isGuest?: boolean;
-  callTime?: string;
 }
 
-const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSave, initialOption, dateContext, config, isGuest = false, callTime }) => {
+const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSave, initialOption, dateContext, config, isGuest = false }) => {
   const [strategy, setStrategy] = useState<'direct' | 'hub'>('direct');
-// ... (skip lines 20-116)
-                <FlightInput
-                  key={i}
-                  label={`Flight Segment #${i + 1}`}
-                  value={seg}
-                  onChange={(val) => { const n = [...segments]; n[i] = val; setSegments(n); }}
-                  showRemove={segments.length > 1}
-                  onRemove={() => { const n = segments.filter((_, idx) => idx !== i); setSegments(n); }}
-                  onMoveUp={() => setSegments(moveItem(segments, i, i - 1))}
-                  onMoveDown={() => setSegments(moveItem(segments, i, i + 1))}
-                  isFirst={i === 0}
-                  isLast={i === segments.length - 1}
-                  config={config}
-                  dateContext={dateContext}
-                  isGuest={isGuest}
-                  targetTime={callTime}
-                />
-// ... (skip lines 132-172)
-                        <FlightInput
-                          key={i}
-                          label={`Inbound Option #${i + 1}`}
-                          value={seg}
-                          onChange={(val) => { const n = [...inbounds]; n[i] = val; setInbounds(n); }}
-                          showRemove={inbounds.length > 1}
-                          onRemove={() => { const n = inbounds.filter((_, idx) => idx !== i); setInbounds(n); }}
-                          onMoveUp={() => setInbounds(moveItem(inbounds, i, i - 1))}
-                          onMoveDown={() => setInbounds(moveItem(inbounds, i, i + 1))}
-                          isFirst={i === 0}
-                          isLast={i === inbounds.length - 1}
-                          config={config}
-                          dateContext={dateContext}
-                          defaultSearchFrom={config.homeBase}
-                          defaultSearchTo={hub}
-                          allowGround={false}
-                          isGuest={isGuest}
-                          targetTime={callTime}
-                        />
-// ... (skip lines 191-201)
-                        <FlightInput
-                          key={i}
-                          label={i === 0 ? "Primary Outbound" : `Alternative Outbound #${i}`}
-                          value={seg}
-                          onChange={(val) => { const n = [...outbounds]; n[i] = val; setOutbounds(n); }}
-                          showRemove={outbounds.length > 1}
-                          onRemove={() => { const n = outbounds.filter((_, idx) => idx !== i); setOutbounds(n); }}
-                          onMoveUp={() => setOutbounds(moveItem(outbounds, i, i - 1))}
-                          onMoveDown={() => setOutbounds(moveItem(outbounds, i, i + 1))}
-                          isFirst={i === 0}
-                          isLast={i === outbounds.length - 1}
-                          config={config}
-                          dateContext={dateContext}
-                          defaultSearchFrom={hub}
-                          defaultSearchTo={config.reserveBase}
-                          allowGround={true}
-                          isGuest={isGuest}
-                          targetTime={callTime}
-                        />
   const [hub, setHub] = useState('');
   // Direct Segments
   const [segments, setSegments] = useState<FlightSegment[]>([]);
