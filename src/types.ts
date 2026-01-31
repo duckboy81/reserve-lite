@@ -68,8 +68,25 @@ export interface RowData {
   options: Option[];
 }
 
+export interface SearchLeg {
+  carrierCodeIATA: string;
+  aircraftIdentification: {
+    flightNumber: string;
+  };
+  departureAirportCode: string;
+  arrivalAirportCode: string;
+  departure: {
+    scheduledDate: string;
+    gate?: string;
+  };
+  arrival: {
+    scheduledDate: string;
+    gate?: string;
+  };
+}
+
 export interface SearchResult {
-  legs: FlightStatus[];
+  legs: SearchLeg[];
 }
 
 export interface ScheduleData {

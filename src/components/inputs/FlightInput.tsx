@@ -3,6 +3,7 @@ import { ArrowUp, ArrowDown, Search, X } from 'lucide-react';
 import { FlightService } from '../../services/FlightService';
 import { RecentAirports } from '../../services/StorageService';
 import { FlightSegment, Config, SearchResult } from '../../types';
+import RecentAirportsDropdown from './RecentAirportsDropdown';
 
 interface FlightInputProps {
   label: string;
@@ -21,21 +22,21 @@ interface FlightInputProps {
   allowGround?: boolean;
 }
 
-const FlightInput: React.FC<FlightInputProps> = ({ 
-  label, 
-  value, 
-  onChange, 
-  onRemove, 
-  showRemove, 
-  config, 
-  dateContext, 
-  onMoveUp, 
-  onMoveDown, 
-  isFirst, 
-  isLast, 
-  defaultSearchFrom, 
-  defaultSearchTo, 
-  allowGround = true 
+const FlightInput: React.FC<FlightInputProps> = ({
+  label,
+  value,
+  onChange,
+  onRemove,
+  showRemove,
+  config,
+  dateContext,
+  onMoveUp,
+  onMoveDown,
+  isFirst,
+  isLast,
+  defaultSearchFrom,
+  defaultSearchTo,
+  allowGround = true
 }) => {
   // value = { flight: 'DL123', dep: 'HH:mm', arr: 'HH:mm', depAirport: 'ATL', arrAirport: 'LAX', ground: { duration: '1.5', hub: 'DTW' } }
   const [isSearching, setIsSearching] = useState(false);
@@ -81,16 +82,16 @@ const FlightInput: React.FC<FlightInputProps> = ({
   const selectFlight = (f: SearchResult) => {
     const leg = f.legs[0];
     if (!leg) return;
-    const formattedDep = leg.departureTime?.scheduled ? leg.departureTime.scheduled.substring(11, 16) : '';
-    const formattedArr = leg.arrivalTime?.scheduled ? leg.arrivalTime.scheduled.substring(11, 16) : '';
+    const formattedDep = leg.departure?.scheduledDate ? leg.departure.scheduledDate.substring(11, 16) : '';
+    const formattedArr = leg.arrival?.scheduledDate ? leg.arrival.scheduledDate.substring(11, 16) : '';
 
     const newData: FlightSegment = {
       ...value,
       flight: `${leg.carrierCodeIATA}${leg.aircraftIdentification.flightNumber}`,
       dep: formattedDep,
       arr: formattedArr,
-      depAirport: leg.departureAirport?.iata,
-      arrAirport: leg.arrivalAirport?.iata,
+      depAirport: leg.departureAirportCode,
+      arrAirport: leg.arrivalAirportCode,
       status: 'Unknown'
     };
     onChange(newData);
@@ -155,17 +156,12 @@ const FlightInput: React.FC<FlightInputProps> = ({
                 onBlur={() => handleBlur('from')}
                 placeholder="From"
               />
-              {showRecentFrom && recentAirports.length > 0 && (
-                /* DUPLICATE CODE: This dropdown logic is identical to the 'To' dropdown below. Consider extracting to a <RecentlyUsedDropdown> component. */
-                <div className="absolute top-full left-0 w-full bg-white border shadow-lg z-50 max-h-32 overflow-y-auto rounded-b">
-                  <div className="text-[9px] font-bold text-gray-400 bg-gray-50 px-2 py-1">RECENT</div>
-                  {recentAirports.map(code => (
-                    <div key={code} className="flex justify-between items-center px-2 py-1 hover:bg-indigo-50 cursor-pointer">
-                      <span onClick={() => setSearchParams({ ...searchParams, from: code })} className="flex-1 text-xs font-bold">{code}</span>
-                      <button onClick={(e) => { e.stopPropagation(); RecentAirports.remove(code); setRecentAirports(RecentAirports.get()); }} className="text-gray-300 hover:text-red-500"><X size={10} /></button>
-                    </div>
-                  ))}
-                </div>
+              {showRecentFrom && (
+                <RecentAirportsDropdown
+                  recentAirports={recentAirports}
+                  onSelect={(code) => setSearchParams({ ...searchParams, from: code })}
+                  onRemove={(code) => { RecentAirports.remove(code); setRecentAirports(RecentAirports.get()); }}
+                />
               )}
             </div>
             <div className="relative">
@@ -177,17 +173,12 @@ const FlightInput: React.FC<FlightInputProps> = ({
                 onBlur={() => handleBlur('to')}
                 placeholder="To"
               />
-              {showRecentTo && recentAirports.length > 0 && (
-                /* DUPLICATE CODE: This dropdown logic is identical to the 'From' dropdown above. Consider extracting to a <RecentlyUsedDropdown> component. */
-                <div className="absolute top-full left-0 w-full bg-white border shadow-lg z-50 max-h-32 overflow-y-auto rounded-b">
-                  <div className="text-[9px] font-bold text-gray-400 bg-gray-50 px-2 py-1">RECENT</div>
-                  {recentAirports.map(code => (
-                    <div key={code} className="flex justify-between items-center px-2 py-1 hover:bg-indigo-50 cursor-pointer">
-                      <span onClick={() => setSearchParams({ ...searchParams, to: code })} className="flex-1 text-xs font-bold">{code}</span>
-                      <button onClick={(e) => { e.stopPropagation(); RecentAirports.remove(code); setRecentAirports(RecentAirports.get()); }} className="text-gray-300 hover:text-red-500"><X size={10} /></button>
-                    </div>
-                  ))}
-                </div>
+              {showRecentTo && (
+                <RecentAirportsDropdown
+                  recentAirports={recentAirports}
+                  onSelect={(code) => setSearchParams({ ...searchParams, to: code })}
+                  onRemove={(code) => { RecentAirports.remove(code); setRecentAirports(RecentAirports.get()); }}
+                />
               )}
             </div>
             <input type="date" className="border p-1 rounded text-xs" value={searchParams.date} onChange={e => setSearchParams({ ...searchParams, date: e.target.value })} />
@@ -200,16 +191,16 @@ const FlightInput: React.FC<FlightInputProps> = ({
               {searchResults.length === 0 && <div className="p-2 text-xs text-gray-400">No flights found</div>}
               {searchResults.map((f, i) => {
                 const leg = f.legs[0];
-                const depGate = leg.departure.gate;
-                const arrGate = leg.arrival.gate;
+                const depGate = leg?.departure.gate;
+                const arrGate = leg?.arrival.gate;
                 return (
                   <div key={i} onClick={() => selectFlight(f)} className="p-2 border-b text-xs hover:bg-indigo-50 cursor-pointer flex justify-between items-center">
                     <div className="flex flex-col">
-                      <span className="font-bold text-indigo-700">{leg.carrierCodeIATA}{leg.aircraftIdentification.flightNumber}</span>
-                      <span className="text-[9px] text-gray-400">{leg.departureAirportCode} → {leg.arrivalAirportCode}</span>
+                      <span className="font-bold text-indigo-700">{leg?.carrierCodeIATA}{leg?.aircraftIdentification.flightNumber}</span>
+                      <span className="text-[9px] text-gray-400">{leg?.departureAirportCode} → {leg?.arrivalAirportCode}</span>
                     </div>
                     <div className="text-right">
-                      <div>{leg.departure.scheduledDate.substring(11, 16)} - {leg.arrival.scheduledDate.substring(11, 16)}</div>
+                      <div>{leg?.departure.scheduledDate.substring(11, 16)} - {leg?.arrival.scheduledDate.substring(11, 16)}</div>
                       {(depGate || arrGate) && <div className="text-[9px] text-gray-500">Gate: {depGate || '-'} / {arrGate || '-'}</div>}
                     </div>
                   </div>
@@ -252,9 +243,9 @@ const FlightInput: React.FC<FlightInputProps> = ({
           {showGround && (
             <div className="flex items-center gap-1 bg-yellow-50 p-1 rounded border border-yellow-200">
               <span className="text-[10px] text-yellow-800 font-bold">HUB:</span>
-              <input className="w-10 p-0.5 text-xs border rounded uppercase" value={value?.ground?.hub || ''} onChange={e => updateField('ground', { ...value.ground, hub: e.target.value })} placeholder="DTW" />
+              <input className="w-10 p-0.5 text-xs border rounded uppercase" value={value?.ground?.hub || ''} onChange={e => updateField('ground', { duration: value?.ground?.duration || '1.0', mode: 'Uber', ...value.ground, hub: e.target.value })} placeholder="DTW" />
               <span className="text-[10px] text-yellow-800 font-bold ml-1">HRS:</span>
-              <input className="w-10 p-0.5 text-xs border rounded" value={value?.ground?.duration || ''} onChange={e => updateField('ground', { ...value.ground, duration: e.target.value })} placeholder="1.0" />
+              <input className="w-10 p-0.5 text-xs border rounded" value={value?.ground?.duration || ''} onChange={e => updateField('ground', { hub: value?.ground?.hub || 'UNK', mode: 'Uber', ...value.ground, duration: e.target.value })} placeholder="1.0" />
             </div>
           )}
         </div>

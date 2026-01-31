@@ -1,6 +1,6 @@
-import { API_CONFIG, DEFAULT_CONFIG } from '../config/constants';
+import { API_CONFIG, DEFAULT_CONFIG, DEFAULT_SEARCH_PARAMS } from '../config/constants';
 import { AuthService } from './AuthService';
-import { FlightSegment, FlightStatus } from '../types';
+import { FlightSegment, FlightStatus, SearchResult } from '../types';
 
 interface CachedItem {
   timestamp: number;
@@ -35,7 +35,7 @@ export const FlightService = {
     const token = AuthService.getToken();
     if (!token) return null;
     const validPayloads = flightsToFetch.map(f => FlightService.buildInfoPayload(f, dateStr || '2026-01-29')).filter(p => p !== null);
-    if(validPayloads.length === 0) return null;
+    if (validPayloads.length === 0) return null;
     try {
       const response = await fetch(API_CONFIG.FLIGHT_INFO_URL, {
         method: 'POST',
@@ -46,17 +46,14 @@ export const FlightService = {
       return await response.json();
     } catch (e) { return null; }
   },
-  searchFlights: async (from: string, to: string, date: string): Promise<{ flights: any[] }> => {
+  searchFlights: async (from: string, to: string, date: string): Promise<{ flights: SearchResult[] }> => {
     const token = AuthService.getToken();
     if (!token) throw new Error("Not authenticated");
     const payload = {
       departureLocation: { code: from, latitude: 0, longitude: 0, isCity: false },
       arrivalLocation: { code: to, latitude: 0, longitude: 0, isCity: false },
-      isNonStopSearch: true, isOneStopSearch: false, isTwoStopSearch: false,
-      departBy: `${date} 00:00:00`, arriveBy: "1970-01-01 23:59:59",
-      avoidConnectionAirportCodes: [], requireConnectionAirportCodes: [],
-      minConnectionTime: 30, maxTotalTravelTime: 2880, isCargoIncluded: true, isRegionalIncluded: true,
-      page: 1, pageSize: 30, sortBy: 0, isSortDesc: false, lighteningMode: true, requiredAircrafts: [], requiredAirlines: [], IsPinned: false
+      departBy: `${date} 00:00:00`,
+      ...DEFAULT_SEARCH_PARAMS
     };
     const response = await fetch(API_CONFIG.SEARCH_URL, {
       method: 'POST',

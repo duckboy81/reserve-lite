@@ -5,6 +5,27 @@ export const API_CONFIG = {
   CACHE_DURATION_MS: 1000 * 60 * 30, // 30 minutes
 };
 
+export const DEFAULT_SEARCH_PARAMS = {
+  isNonStopSearch: true,
+  isOneStopSearch: false,
+  isTwoStopSearch: false,
+  arriveBy: "1970-01-01 23:59:59",
+  avoidConnectionAirportCodes: [] as string[],
+  requireConnectionAirportCodes: [] as string[],
+  minConnectionTime: 30,
+  maxTotalTravelTime: 2880,
+  isCargoIncluded: true,
+  isRegionalIncluded: true,
+  page: 1,
+  pageSize: 30,
+  sortBy: 0,
+  isSortDesc: false,
+  lighteningMode: true,
+  requiredAircrafts: [] as string[],
+  requiredAirlines: [] as string[],
+  IsPinned: false
+};
+
 export const DEFAULT_CONFIG = {
   homeBase: 'ATL',
   homeTz: 'America/New_York',
