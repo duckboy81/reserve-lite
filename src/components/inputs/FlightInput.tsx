@@ -224,7 +224,7 @@ const FlightInput: React.FC<FlightInputProps> = ({
             </button>
             {isSearchDisabled && (
               <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-sm opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
-                {disabledReason}
+                {disabledReason}ssadaa
               </span>
             )}
           </div>

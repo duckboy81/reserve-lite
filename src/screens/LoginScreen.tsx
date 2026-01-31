@@ -116,7 +116,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         </button>
       </form>
 
-      <div className="relative mt-8 mb-6">
+      <div className="relative mt-6 mb-6">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-gray-200"></div>
         </div>
@@ -125,7 +125,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         </div>
       </div>
 
-      <div className="flex flex-col items-center">
+      <div className="relative flex flex-col items-center group/tooltip">
         <button
           onClick={() => {
             AuthService.setGuestMode();
@@ -133,12 +133,14 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
           }}
           className="w-full py-2.5 px-4 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:text-gray-900 transition-all active:bg-gray-100"
         >
-          Continue without logging in...
+          Continue Without Logging In
         </button>
-        <p className="text-[10px] text-gray-400 mt-2 text-center">Flight search features will not be available.</p>
+        <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-sm opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-300">
+          Flight search feature unavailable in offline mode.
+        </span>
       </div>
 
-      <div className="mt-8 border-t border-gray-100 pt-4">
+      <div className="mt-6 pt-2">
         <button
           onClick={() => setShowSecurityDetails(!showSecurityDetails)}
           className="w-full flex items-center justify-center gap-2 text-gray-400 hover:text-gray-600 transition-colors group"
@@ -151,11 +153,17 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         {showSecurityDetails && (
           <div className="mt-3 bg-gray-50 p-3 rounded-lg border border-gray-100 text-[10px] text-gray-500 leading-relaxed shadow-inner">
             <p className="mb-2 font-medium text-gray-700">
-              This application enforces a strict <a href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP" target="_blank" rel="noopener noreferrer" className="text-indigo-600 inline-flex items-center gap-1">
+              This application enforces a strict{" "}
+              <a
+                href="https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-indigo-600 inline-flex items-center gap-1"
+              >
                 Content Security Policy (CSP)
                 <ExternalLink className="h-3 w-3" />
-              </a>.
-              The browser will block any network request that is not directed to:
+              </a>
+              . The browser will block any non-resource network request that is not directed to:
             </p>
             <ul className="space-y-1 font-mono text-gray-600 bg-white p-2 rounded border border-gray-100">
               <li className="flex items-center gap-1.5">
