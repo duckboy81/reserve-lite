@@ -1,8 +1,8 @@
-import React from 'react';
-import {Plane, Split, Plus} from 'lucide-react';
-import FlightInput from '../inputs/FlightInput';
-import {moveItem} from '../../utils/dateUtil';
-import {Config, FlightSegment} from '../../types';
+import React from "react";
+import { Plane, Split, Plus } from "lucide-react";
+import FlightInput from "../inputs/FlightInput";
+import { moveItem } from "../../utils/dateUtil";
+import { Config, FlightSegment } from "../../types";
 
 interface HubStrategyInputsProps {
   inbounds: FlightSegment[];
@@ -16,20 +16,21 @@ interface HubStrategyInputsProps {
 }
 
 const HubStrategyInputs: React.FC<HubStrategyInputsProps> = ({
-                                                               inbounds,
-                                                               setInbounds,
-                                                               outbounds,
-                                                               setOutbounds,
-                                                               hub,
-                                                               config,
-                                                               dateContext,
-                                                               isGuest,
-                                                             }) => {
+  inbounds,
+  setInbounds,
+  outbounds,
+  setOutbounds,
+  hub,
+  config,
+  dateContext,
+  isGuest,
+}) => {
   return (
     <>
       <div>
-        <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2"><Plane size={14}/> Inbound Legs (To
-          Hub)</h4>
+        <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2">
+          <Plane size={14} /> Inbound Legs (To Hub)
+        </h4>
         <div className="pl-6 border-l-2 border-gray-200 ml-1">
           {inbounds.map((seg, i) => (
             <FlightInput
@@ -58,16 +59,19 @@ const HubStrategyInputs: React.FC<HubStrategyInputsProps> = ({
               isGuest={isGuest}
             />
           ))}
-          <button onClick={() => setInbounds([...inbounds, {flight: '', dep: '', arr: '', status: ''}])}
-                  className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline">
-            <Plus size={14}/> Add Inbound Option
+          <button
+            onClick={() => setInbounds([...inbounds, { flight: "", dep: "", arr: "", status: "" }])}
+            className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline"
+          >
+            <Plus size={14} /> Add Inbound Option
           </button>
         </div>
       </div>
 
       <div>
-        <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2"><Split size={14}/> Outbound Options
-          (From Hub)</h4>
+        <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2">
+          <Split size={14} /> Outbound Options (From Hub)
+        </h4>
         <div className="pl-6 border-l-2 border-gray-200 ml-1">
           {outbounds.map((seg, i) => (
             <FlightInput
@@ -97,9 +101,10 @@ const HubStrategyInputs: React.FC<HubStrategyInputsProps> = ({
             />
           ))}
           <button
-            onClick={() => setOutbounds([...outbounds, {flight: '', dep: '', arr: '', status: '', isPrimary: false}])}
-            className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline">
-            <Plus size={14}/> Add Alternative Option
+            onClick={() => setOutbounds([...outbounds, { flight: "", dep: "", arr: "", status: "", isPrimary: false }])}
+            className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline"
+          >
+            <Plus size={14} /> Add Alternative Option
           </button>
         </div>
       </div>

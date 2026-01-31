@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Edit3, X } from 'lucide-react';
-import FlightInput from '../inputs/FlightInput';
-import HubStrategyInputs from './HubStrategyInputs';
-import { COMMON_HUBS } from '../../config/constants';
-import { RecentAirports } from '../../services/StorageService';
-import { moveItem } from '../../utils/dateUtil';
-import { Option, Config, FlightSegment } from '../../types';
+import React, { useState, useEffect } from "react";
+import { Edit3, X } from "lucide-react";
+import FlightInput from "../inputs/FlightInput";
+import HubStrategyInputs from "./HubStrategyInputs";
+import { COMMON_HUBS } from "../../config/constants";
+import { RecentAirports } from "../../services/StorageService";
+import { moveItem } from "../../utils/dateUtil";
+import { Option, Config, FlightSegment } from "../../types";
 
 interface EditOptionModalProps {
   isOpen: boolean;
@@ -17,9 +17,17 @@ interface EditOptionModalProps {
   isGuest?: boolean;
 }
 
-const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSave, initialOption, dateContext, config, isGuest = false }) => {
-  const [strategy, setStrategy] = useState<'direct' | 'hub'>('direct');
-  const [hub, setHub] = useState('');
+const EditOptionModal: React.FC<EditOptionModalProps> = ({
+  isOpen,
+  onClose,
+  onSave,
+  initialOption,
+  dateContext,
+  config,
+  isGuest = false,
+}) => {
+  const [strategy, setStrategy] = useState<"direct" | "hub">("direct");
+  const [hub, setHub] = useState("");
   // Direct Segments
   const [segments, setSegments] = useState<FlightSegment[]>([]);
   // Hub Strategy Parts
@@ -29,27 +37,37 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSa
 
   useEffect(() => {
     if (isOpen) {
-      setRecentHubs(RecentAirports.get().filter(h => !COMMON_HUBS.includes(h)));
+      setRecentHubs(RecentAirports.get().filter((h) => !COMMON_HUBS.includes(h)));
     }
   }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && initialOption) {
-      if (initialOption.type === 'hub-strategy') {
-        setStrategy('hub');
-        setHub(initialOption.hub || '');
-        setInbounds(Array.isArray(initialOption.inbound) ? initialOption.inbound : (initialOption.inbound ? [initialOption.inbound] : []));
+      if (initialOption.type === "hub-strategy") {
+        setStrategy("hub");
+        setHub(initialOption.hub || "");
+        setInbounds(
+          Array.isArray(initialOption.inbound)
+            ? initialOption.inbound
+            : initialOption.inbound
+              ? [initialOption.inbound]
+              : [],
+        );
         setOutbounds(initialOption.outbound || []);
       } else {
-        setStrategy('direct');
+        setStrategy("direct");
         setSegments(initialOption.segments || []);
       }
     } else if (isOpen) {
-      setStrategy('direct');
-      setHub('');
-      setSegments([{ flight: '', dep: '', arr: '', status: '', depAirport: config.homeBase, arrAirport: config.reserveBase }]);
-      setInbounds([{ flight: '', dep: '', arr: '', status: '', depAirport: config.homeBase, arrAirport: '' }]);
-      setOutbounds([{ flight: '', dep: '', arr: '', status: '', depAirport: '', arrAirport: config.reserveBase, isPrimary: true }]);
+      setStrategy("direct");
+      setHub("");
+      setSegments([
+        { flight: "", dep: "", arr: "", status: "", depAirport: config.homeBase, arrAirport: config.reserveBase },
+      ]);
+      setInbounds([{ flight: "", dep: "", arr: "", status: "", depAirport: config.homeBase, arrAirport: "" }]);
+      setOutbounds([
+        { flight: "", dep: "", arr: "", status: "", depAirport: "", arrAirport: config.reserveBase, isPrimary: true },
+      ]);
     }
   }, [isOpen, initialOption, config]);
 
@@ -60,32 +78,32 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSa
 
   const handleSave = () => {
     let finalOpt: Option;
-    if (strategy === 'direct') {
-      const cleanSegs = segments.filter(s => s.flight);
+    if (strategy === "direct") {
+      const cleanSegs = segments.filter((s) => s.flight);
       if (cleanSegs.length === 0) return;
       const last = cleanSegs[cleanSegs.length - 1];
       if (!last) return;
       finalOpt = {
-        type: 'direct',
+        type: "direct",
         segments: cleanSegs,
         finalArr: last.arr,
-        label: last.ground ? `Via ${last.ground.hub}` : undefined
+        label: last.ground ? `Via ${last.ground.hub}` : undefined,
       };
     } else {
-      const cleanInbounds = inbounds.filter(i => i.flight);
-      const cleanOutbounds = outbounds.filter(o => o.flight);
+      const cleanInbounds = inbounds.filter((i) => i.flight);
+      const cleanOutbounds = outbounds.filter((o) => o.flight);
 
       if (cleanInbounds.length === 0 && cleanOutbounds.length === 0) return;
 
       const flaggedOut = cleanOutbounds.map((o, i) => ({ ...o, isPrimary: i === 0, isSecondary: i > 0 }));
-      const hubLabel = hub || cleanInbounds[0]?.arrAirport || 'HUB';
+      const hubLabel = hub || cleanInbounds[0]?.arrAirport || "HUB";
 
       finalOpt = {
-        type: 'hub-strategy',
+        type: "hub-strategy",
         hub: hubLabel,
         label: `${hubLabel} Strategy`,
         inbound: cleanInbounds,
-        outbound: flaggedOut
+        outbound: flaggedOut,
       };
     }
     onSave(finalOpt);
@@ -97,30 +115,47 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSa
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
         <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
-          <h3 className="font-bold text-lg flex items-center gap-2"><Edit3 size={18} /> {initialOption ? 'Edit Strategy' : 'Add New Strategy'}</h3>
-          <button onClick={onClose}><X size={20} className="text-gray-400 hover:text-gray-600" /></button>
+          <h3 className="font-bold text-lg flex items-center gap-2">
+            <Edit3 size={18} /> {initialOption ? "Edit Strategy" : "Add New Strategy"}
+          </h3>
+          <button onClick={onClose}>
+            <X size={20} className="text-gray-400 hover:text-gray-600" />
+          </button>
         </div>
 
         <div className="p-4 overflow-y-auto flex-1 bg-gray-50/50">
           <div className="flex gap-4 mb-6">
-            <button onClick={() => setStrategy('direct')} className={`flex-1 py-3 font-bold rounded-lg border transition-all ${strategy === 'direct' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>
+            <button
+              onClick={() => setStrategy("direct")}
+              className={`flex-1 py-3 font-bold rounded-lg border transition-all ${strategy === "direct" ? "bg-indigo-600 text-white border-indigo-600 shadow-md" : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"}`}
+            >
               Direct / Simple
             </button>
-            <button onClick={() => setStrategy('hub')} className={`flex-1 py-3 font-bold rounded-lg border transition-all ${strategy === 'hub' ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}>
+            <button
+              onClick={() => setStrategy("hub")}
+              className={`flex-1 py-3 font-bold rounded-lg border transition-all ${strategy === "hub" ? "bg-indigo-600 text-white border-indigo-600 shadow-md" : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"}`}
+            >
               Hub Strategy
             </button>
           </div>
 
-          {strategy === 'direct' ? (
+          {strategy === "direct" ? (
             <div className="space-y-4">
               {segments.map((seg, i) => (
                 <FlightInput
                   key={i}
                   label={`Flight Segment #${i + 1}`}
                   value={seg}
-                  onChange={(val) => { const n = [...segments]; n[i] = val; setSegments(n); }}
+                  onChange={(val) => {
+                    const n = [...segments];
+                    n[i] = val;
+                    setSegments(n);
+                  }}
                   showRemove={segments.length > 1}
-                  onRemove={() => { const n = segments.filter((_, idx) => idx !== i); setSegments(n); }}
+                  onRemove={() => {
+                    const n = segments.filter((_, idx) => idx !== i);
+                    setSegments(n);
+                  }}
                   onMoveUp={() => setSegments(moveItem(segments, i, i - 1))}
                   onMoveDown={() => setSegments(moveItem(segments, i, i + 1))}
                   isFirst={i === 0}
@@ -130,7 +165,10 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSa
                   isGuest={isGuest}
                 />
               ))}
-              <button onClick={() => setSegments([...segments, { flight: '', dep: '', arr: '', status: '' }])} className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 font-bold hover:border-indigo-400 hover:text-indigo-500 transition-colors">
+              <button
+                onClick={() => setSegments([...segments, { flight: "", dep: "", arr: "", status: "" }])}
+                className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 font-bold hover:border-indigo-400 hover:text-indigo-500 transition-colors"
+              >
                 + Add Connecting Leg
               </button>
             </div>
@@ -139,19 +177,31 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSa
               <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
                 <label className="block text-xs font-bold text-indigo-800 uppercase mb-2">Connecting Hub</label>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {COMMON_HUBS.map(h => (
-                    <button key={h} onClick={() => setHub(h)} className={`text-xs px-2 py-1 rounded border font-bold ${hub === h ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-indigo-600 border-indigo-200 hover:border-indigo-400'}`}>
+                  {COMMON_HUBS.map((h) => (
+                    <button
+                      key={h}
+                      onClick={() => setHub(h)}
+                      className={`text-xs px-2 py-1 rounded border font-bold ${hub === h ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-indigo-600 border-indigo-200 hover:border-indigo-400"}`}
+                    >
                       {h}
                     </button>
                   ))}
-                  {recentHubs.map(h => (
+                  {recentHubs.map((h) => (
                     <div key={h} className="relative group">
-                      <button onClick={() => setHub(h)} className={`text-xs px-2 py-1 rounded border font-bold ${hub === h ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'}`}>
+                      <button
+                        onClick={() => setHub(h)}
+                        className={`text-xs px-2 py-1 rounded border font-bold ${hub === h ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}
+                      >
                         {h}
                       </button>
                       <button
-                        onClick={(e) => { e.stopPropagation(); RecentAirports.remove(h); setRecentHubs(RecentAirports.get().filter(x => !COMMON_HUBS.includes(x))); }}
-                        className="absolute -top-1 -right-1 bg-red-400 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity" title="Remove"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          RecentAirports.remove(h);
+                          setRecentHubs(RecentAirports.get().filter((x) => !COMMON_HUBS.includes(x)));
+                        }}
+                        className="absolute -top-1 -right-1 bg-red-400 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                        title="Remove"
                       >
                         <X size={8} />
                       </button>
@@ -159,7 +209,12 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSa
                   ))}
                 </div>
                 <div className="flex items-center gap-2">
-                  <input className="w-24 border p-2 rounded font-bold uppercase" placeholder="HUB" value={hub} onChange={e => handleHubChange(e.target.value.toUpperCase())} />
+                  <input
+                    className="w-24 border p-2 rounded font-bold uppercase"
+                    placeholder="HUB"
+                    value={hub}
+                    onChange={(e) => handleHubChange(e.target.value.toUpperCase())}
+                  />
                   <p className="text-[10px] text-indigo-400">Specify hub to see flight options.</p>
                 </div>
               </div>
@@ -183,8 +238,15 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({ isOpen, onClose, onSa
         </div>
 
         <div className="p-4 border-t bg-white rounded-b-xl flex justify-end gap-2">
-          <button onClick={onClose} className="px-5 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded">Cancel</button>
-          <button onClick={handleSave} className="px-6 py-2 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700 shadow-lg transition-transform active:scale-95">Save Strategy</button>
+          <button onClick={onClose} className="px-5 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded">
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            className="px-6 py-2 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700 shadow-lg transition-transform active:scale-95"
+          >
+            Save Strategy
+          </button>
         </div>
       </div>
     </div>

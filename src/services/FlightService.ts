@@ -1,9 +1,7 @@
-import { API_CONFIG, DEFAULT_CONFIG, DEFAULT_SEARCH_PARAMS } from '../config/constants';
-import { AuthService } from './AuthService';
-import { FlightSegment, FlightStatus, SearchResult } from '../types';
-import { db } from '../db/ReserveDatabase';
-
-
+import { API_CONFIG, DEFAULT_CONFIG, DEFAULT_SEARCH_PARAMS } from "../config/constants";
+import { AuthService } from "./AuthService";
+import { FlightSegment, FlightStatus, SearchResult } from "../types";
+import { db } from "../db/ReserveDatabase";
 
 export const FlightService = {
   getCachedStatus: async (flightKey: string): Promise<FlightStatus | null> => {
@@ -23,7 +21,7 @@ export const FlightService = {
       await db.flightCache.put({
         flightNumber: flightKey,
         timestamp: Date.now(),
-        data: data
+        data: data,
       });
     } catch (e) {
       console.error("Cache write error", e);
@@ -35,24 +33,31 @@ export const FlightService = {
     const match = flightObj.flight.match(/([A-Z0-9]{2})(\d+)/);
     if (!match) return null;
     return {
-      legs: [{
-        departureAirportCode: DEFAULT_CONFIG.homeBase,
-        departureDate: `${dateStr} ${flightObj.dep}:00`,
-        carrierCode: match[1],
-        flightNumber: match[2]
-      }]
+      legs: [
+        {
+          departureAirportCode: DEFAULT_CONFIG.homeBase,
+          departureDate: `${dateStr} ${flightObj.dep}:00`,
+          carrierCode: match[1],
+          flightNumber: match[2],
+        },
+      ],
     };
   },
-  fetchStatuses: async (flightsToFetch: FlightSegment[], dateStr: string): Promise<{ legs: FlightStatus[] }[] | null> => {
+  fetchStatuses: async (
+    flightsToFetch: FlightSegment[],
+    dateStr: string,
+  ): Promise<{ legs: FlightStatus[] }[] | null> => {
     const token = AuthService.getToken();
     if (!token) return null;
-    const validPayloads = flightsToFetch.map(f => FlightService.buildInfoPayload(f, dateStr || '2026-01-29')).filter(p => p !== null);
+    const validPayloads = flightsToFetch
+      .map((f) => FlightService.buildInfoPayload(f, dateStr || "2026-01-29"))
+      .filter((p) => p !== null);
     if (validPayloads.length === 0) return null;
     try {
       const response = await fetch(API_CONFIG.FLIGHT_INFO_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(validPayloads)
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify(validPayloads),
       });
       if (!response.ok) return null;
       const data = await response.json();
@@ -61,11 +66,13 @@ export const FlightService = {
       if (Array.isArray(data)) {
         return data.map((group: any) => ({
           ...group,
-          legs: group.legs.map((leg: FlightStatus) => ({ ...leg, _retrievedAt: now }))
+          legs: group.legs.map((leg: FlightStatus) => ({ ...leg, _retrievedAt: now })),
         }));
       }
       return data;
-    } catch (e) { return null; }
+    } catch (e) {
+      return null;
+    }
   },
   searchFlights: async (from: string, to: string, date: string): Promise<{ flights: SearchResult[] }> => {
     const token = AuthService.getToken();
@@ -74,13 +81,13 @@ export const FlightService = {
       departureLocation: { code: from, latitude: 0, longitude: 0, isCity: false },
       arrivalLocation: { code: to, latitude: 0, longitude: 0, isCity: false },
       departBy: `${date} 00:00:00`,
-      ...DEFAULT_SEARCH_PARAMS
+      ...DEFAULT_SEARCH_PARAMS,
     };
     const response = await fetch(API_CONFIG.SEARCH_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-      body: JSON.stringify(payload)
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(payload),
     });
     return await response.json();
-  }
+  },
 };

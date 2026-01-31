@@ -41,11 +41,14 @@ export interface FlightSegment {
   dep: string;
   arr: string;
   status: string;
-  ground?: {
-    hub: string;
-    duration: string;
-    mode: string;
-  } | null | undefined;
+  ground?:
+    | {
+        hub: string;
+        duration: string;
+        mode: string;
+      }
+    | null
+    | undefined;
   depAirport?: string | undefined;
   arrAirport?: string | undefined;
   isPrimary?: boolean | undefined;
@@ -53,7 +56,7 @@ export interface FlightSegment {
 }
 
 export interface Option {
-  type: 'direct' | 'hub-strategy';
+  type: "direct" | "hub-strategy";
   label?: string | undefined;
   hub?: string | undefined;
   segments?: FlightSegment[] | undefined;
