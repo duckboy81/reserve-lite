@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { ArrowUp, ArrowDown, Search, X } from 'lucide-react';
+import { useNetworkStatus } from '../../hooks/useNetworkStatus';
 import { FlightService } from '../../services/FlightService';
 import { RecentAirports } from '../../services/StorageService';
 import { FlightSegment, Config, SearchResult } from '../../types';
@@ -113,6 +114,9 @@ const FlightInput: React.FC<FlightInputProps> = ({
     }
   }, [searchResults, targetTime]);
 
+  const isOnline = useNetworkStatus();
+  const isSearchDisabled = isGuest || !isOnline;
+  const disabledReason = !isOnline ? 'Offline - flight search unavailable' : 'Sign in to use flight search';
 
   const handleSearch = async () => {
     setIsSearching(true);
@@ -190,17 +194,17 @@ const FlightInput: React.FC<FlightInputProps> = ({
         <div className="flex gap-2">
           <div className="relative group/tooltip">
             <button
-              onClick={() => !isGuest && setShowSearch(!showSearch)}
-              className={`text-xs font-bold flex items-center gap-1 px-2 py-1 rounded transition-colors ${isGuest
+              onClick={() => !isSearchDisabled && setShowSearch(!showSearch)}
+              className={`text-xs font-bold flex items-center gap-1 px-2 py-1 rounded transition-colors ${isSearchDisabled
                 ? 'text-gray-400 cursor-not-allowed bg-gray-100 hover:bg-gray-100'
                 : 'text-indigo-600 hover:bg-indigo-50 cursor-pointer'
                 }`}
             >
               <Search size={12} /> {showSearch ? 'Cancel Lookup' : 'Find Flight'}
             </button>
-            {isGuest && (
+            {isSearchDisabled && (
               <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-sm opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
-                Sign in to use flight search
+                {disabledReason}
               </span>
             )}
           </div>

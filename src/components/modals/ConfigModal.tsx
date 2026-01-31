@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Settings, Database, Download, Upload, AlertTriangle, FileJson, X } from 'lucide-react';
+import { Settings, Database, Download, Upload, AlertTriangle } from 'lucide-react';
 import { TIMEZONES } from '../../config/constants';
 import { Config } from '../../types';
 import { DataService } from '../../services/DataService';

@@ -59,11 +59,11 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       <div className="mt-6 pt-4 border-t border-gray-100 flex flex-col items-center">
         <button
           onClick={() => { AuthService.setGuestMode(); onLogin({ id: 'GUEST', name: 'Guest User' }); }}
-          className="text-sm font-bold text-gray-400 hover:text-indigo-600 transition-colors"
+          className="text-sm font-bold text-indigo-800 hover:text-indigo-600 transition-colors"
         >
-          Continue without logging in (Offline Mode)
+          Continue without logging in...
         </button>
-        <p className="text-[10px] text-gray-400 mt-1 max-w-[200px] text-center">Flight search features will not be available.</p>
+        <p className="text-[10px] text-gray-400 mt-1 text-center">Flight search features will not be available.</p>
       </div>
     </div>
   );

@@ -1,12 +1,36 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig({
-  plugins: [react()],
+import { VitePWA } from 'vite-plugin-pwa';
 
-  // resolve: {
-  //   // Explicitly dedupe React to ensure compatibility with plugin-react v5
-  //   // which no longer handles this automatically.
-  //   dedupe: ['react', 'react-dom'],
-  // },
+export default defineConfig({
+  plugins: [
+    react(),
+    VitePWA({
+      registerType: 'autoUpdate',
+      includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+      manifest: {
+        name: 'Reserve Lite',
+        short_name: 'ReserveLite',
+        description: 'Offline-capable flight reservation tool',
+        theme_color: '#ffffff',
+        icons: [
+          {
+            src: 'pwa-192x192.png',
+            sizes: '192x192',
+            type: 'image/png'
+          },
+          {
+            src: 'pwa-512x512.png',
+            sizes: '512x512',
+            type: 'image/png'
+          }
+        ]
+      },
+      workbox: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg}']
+      }
+    })
+  ],
 });
+

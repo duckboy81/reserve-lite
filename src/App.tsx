@@ -8,6 +8,8 @@ import { DataService } from './services/DataService';
 
 import { ReserveBlock, ScheduleData, Config, User, Option, RowData, FlightStatus, EditContext, FlightSegment, TimelineRowData } from './types';
 
+import { useNetworkStatus } from './hooks/useNetworkStatus'
+import { OfflineIndicator } from './components/OfflineIndicator'
 import LoginScreen from './screens/LoginScreen';
 import TimelineRow from './components/timeline/TimelineRow';
 import EditOptionModal from './components/modals/EditOptionModal';
@@ -19,6 +21,9 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [airport, setAirport] = useState<string>('ONT');
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
+
+  // Network State
+  const isOnline = useNetworkStatus();
 
   // Data State
   const [scheduleData, setScheduleData] = useState<ScheduleData>({});
@@ -490,6 +495,8 @@ export default function App() {
         confirmText={confirmModal.type === 'commit' ? 'Save' : (confirmModal.type === 'logout' ? 'Logout' : (confirmModal.type === 'paste' ? 'Overwrite' : 'Discard'))}
         confirmColor={confirmModal.type === 'commit' ? 'bg-green-600' : (confirmModal.type === 'paste' ? 'bg-indigo-600' : 'bg-red-600')}
       />
+
+      <OfflineIndicator isOnline={isOnline} />
 
       {/* Login Overlay */}
       {!user && (
