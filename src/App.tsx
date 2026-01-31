@@ -570,24 +570,7 @@ export default function App() {
 
       <ConfirmModal
         isOpen={confirmModal.isOpen}
-        title={
-          confirmModal.type === "commit"
-            ? "Save Changes?"
-            : confirmModal.type === "logout"
-              ? "Confirm Logout"
-              : confirmModal.type === "paste"
-                ? "Overwrite Plan?"
-                : "Discard Changes?"
-        }
-        message={
-          confirmModal.type === "commit"
-            ? "This will overwrite your existing schedule. Are you sure?"
-            : confirmModal.type === "logout"
-              ? "Are you sure you want to log out?"
-              : confirmModal.type === "paste"
-                ? "This hour already has a plan. Overwrite it?"
-                : "All unsaved changes in this session will be lost. Are you sure?"
-        }
+        type={confirmModal.type}
         onConfirm={() => {
           if (confirmModal.type === "commit") executeCommit();
           else if (confirmModal.type === "logout") executeLogout();
@@ -595,22 +578,6 @@ export default function App() {
           else executeDiscard();
         }}
         onCancel={() => setConfirmModal({ isOpen: false, type: null })}
-        confirmText={
-          confirmModal.type === "commit"
-            ? "Save"
-            : confirmModal.type === "logout"
-              ? "Logout"
-              : confirmModal.type === "paste"
-                ? "Overwrite"
-                : "Discard"
-        }
-        confirmColor={
-          confirmModal.type === "commit"
-            ? "bg-green-600"
-            : confirmModal.type === "paste"
-              ? "bg-indigo-600"
-              : "bg-red-600"
-        }
       />
 
       <OfflineIndicator isOnline={isOnline} />
