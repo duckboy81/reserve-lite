@@ -1,25 +1,23 @@
 import { useState, useEffect } from "react";
-import { Plane, RefreshCw, LogOut, Edit3, Save, Undo, Redo, Calendar, Settings } from "lucide-react";
+import { Calendar } from "lucide-react";
 import { AuthService } from "./services/AuthService";
-import { FlightService } from "./services/FlightService";
+import { DataService } from "./services/DataService";
 import { generateTimeline } from "./utils/dateUtil";
 import { DEFAULT_CONFIG } from "./config/constants";
-import { DataService } from "./services/DataService";
 
 import {
-  ReserveBlock,
-  ScheduleData,
   Config,
   User,
   Option,
-  RowData,
-  FlightStatus,
-  EditContext,
-  FlightSegment,
   TimelineRowData,
+  EditContext,
+  RowData
 } from "./types";
 
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
+import { useScheduleManager } from "./hooks/useScheduleManager";
+import { useReserveData } from "./hooks/useReserveData";
+
 import { OfflineIndicator } from "./components/OfflineIndicator";
 import LoginScreen from "./screens/LoginScreen";
 import TimelineRow from "./components/timeline/TimelineRow";
@@ -27,6 +25,7 @@ import EditOptionModal from "./components/modals/EditOptionModal";
 import ConfigModal from "./components/modals/ConfigModal";
 import BlockManager from "./components/modals/BlockManager";
 import ConfirmModal from "./components/modals/ConfirmModal";
+import Header from "./components/layout/Header";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -36,30 +35,51 @@ export default function App() {
   // Network State
   const isOnline = useNetworkStatus();
 
-  // Data State
-  const [scheduleData, setScheduleData] = useState<ScheduleData>({});
-  const [reserveBlocks, setReserveBlocks] = useState<ReserveBlock[]>([]);
-  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
-  const [flightStatuses, setFlightStatuses] = useState<Record<string, FlightStatus>>({});
+  // Custom Hooks
+  const {
+    scheduleData,
+    setScheduleData,
+    isEditMode,
+    stagingData, // only needed if we want to check it explicitly, but activeData covers it
+    history,
+    future,
+    enterEditMode,
+    executeCommit,
+    executeDiscard,
+    handleUndo,
+    handleRedo,
+    modifyOptions,
+    saveOptionToStaging,
+    activeData
+  } = useScheduleManager();
 
-  // Edit State
-  const [isEditMode, setIsEditMode] = useState<boolean>(false);
-  const [stagingData, setStagingData] = useState<ScheduleData | null>(null); // The temporary data being edited
-  const [history, setHistory] = useState<ScheduleData[]>([]);
-  const [future, setFuture] = useState<ScheduleData[]>([]);
+  const {
+    reserveBlocks,
+    setReserveBlocks,
+    activeBlockId,
+    setActiveBlockId,
+    flightStatuses,
+    loading,
+    setLoading,
+    handleBlockAdd,
+    handleBlockEdit,
+    handleBlockDelete,
+    refreshFlights
+  } = useReserveData();
 
   // UI State
   const [modals, setModals] = useState({ edit: false, config: false, blocks: false });
   const [editContext, setEditContext] = useState<EditContext | null>(null);
-  const [loading, setLoading] = useState<boolean>(false);
 
-  // Confirmation Modal State
   // Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     type: "commit" | "discard" | "logout" | "paste" | null;
   }>({ isOpen: false, type: null });
   const [pasteContext, setPasteContext] = useState<{ rowId: string } | null>(null);
+
+  // Clipboard
+  const [clipboardPlan, setClipboardPlan] = useState<Option[] | null>(null);
 
   // --- INIT ---
   useEffect(() => {
@@ -85,7 +105,6 @@ export default function App() {
       // Filter out deleted/archived blocks for main view
       const activeBlocks = blocks.filter((b) => !b.isDeleted && !b.isArchived);
       setReserveBlocks(activeBlocks);
-
       setScheduleData(schedule);
 
       if (activeBlocks.length > 0) {
@@ -97,34 +116,7 @@ export default function App() {
     initApp();
   }, []);
 
-  // --- EDIT MODE ACTIONS ---
-
-  const enterEditMode = () => {
-    setStagingData(JSON.parse(JSON.stringify(scheduleData)));
-    setHistory([]);
-    setFuture([]);
-    setIsEditMode(true);
-  };
-
-  const executeCommit = () => {
-    if (stagingData) {
-      setScheduleData(stagingData);
-      DataService.saveScheduleData(stagingData);
-    }
-    setStagingData(null);
-    setHistory([]);
-    setFuture([]);
-    setIsEditMode(false);
-    setConfirmModal({ isOpen: false, type: null });
-  };
-
-  const executeDiscard = () => {
-    setStagingData(null);
-    setHistory([]);
-    setFuture([]);
-    setIsEditMode(false);
-    setConfirmModal({ isOpen: false, type: null });
-  };
+  // --- ACTIONS ---
 
   const executeLogout = () => {
     AuthService.logout();
@@ -134,14 +126,14 @@ export default function App() {
 
   const executeGuestLogin = () => {
     AuthService.clearGuestMode();
-    setUser(null); // This triggers the modal overlay without reloading
+    setUser(null);
   };
 
   const executePaste = () => {
     if (!pasteContext || !clipboardPlan) return;
     const { rowId } = pasteContext;
 
-    modifyOptions(rowId, (options) => {
+    modifyOptions(airport, rowId, (options) => {
       options.length = 0;
       options.push(...JSON.parse(JSON.stringify(clipboardPlan)));
     });
@@ -149,34 +141,6 @@ export default function App() {
     setPasteContext(null);
     setConfirmModal({ isOpen: false, type: null });
   };
-
-  const updateStaging = (newData: ScheduleData) => {
-    if (stagingData) setHistory([...history, stagingData]);
-    setFuture([]);
-    setStagingData(newData);
-  };
-
-  const handleUndo = () => {
-    if (history.length === 0 || !stagingData) return;
-    const prev = history[history.length - 1];
-    if (prev) {
-      setFuture([stagingData, ...future]);
-      setHistory(history.slice(0, -1));
-      setStagingData(prev);
-    }
-  };
-
-  const handleRedo = () => {
-    if (future.length === 0 || !stagingData) return;
-    const next = future[0];
-    if (next) {
-      setHistory([...history, stagingData]);
-      setFuture(future.slice(1));
-      setStagingData(next);
-    }
-  };
-
-  // --- DATA MANIPULATION ---
 
   const handleAddOption = (rowId: string, dateContext: string) => {
     setEditContext({ rowId, index: null, option: null, dateContext });
@@ -188,57 +152,24 @@ export default function App() {
     setModals({ ...modals, edit: true });
   };
 
-  const saveOptionToStaging = (option: Option) => {
+  const handleSaveOption = (option: Option) => {
     if (!editContext) return;
-    const { rowId, index } = editContext;
-    let currentData = stagingData;
-    if (!isEditMode || !currentData) {
-      setIsEditMode(true);
-      currentData = JSON.parse(JSON.stringify(scheduleData));
-    }
-
-    const newData = JSON.parse(JSON.stringify(currentData));
-    if (!newData[airport]) newData[airport] = [];
-    let row = newData[airport].find((r: RowData) => r.key === rowId);
-    if (!row) {
-      row = { key: rowId, date: editContext.dateContext || "", callET: rowId.split("T")[1] || "", options: [] };
-      newData[airport].push(row);
-    }
-
-    if (index !== null) row.options[index] = option;
-    else row.options.push(option);
-
-    updateStaging(newData);
+    saveOptionToStaging(airport, editContext.rowId, editContext.index, option, editContext.dateContext);
     setModals({ ...modals, edit: false });
   };
 
-  const modifyOptions = (rowId: string, action: (options: Option[]) => void) => {
-    let currentData = stagingData || JSON.parse(JSON.stringify(scheduleData));
-    if (!isEditMode) setIsEditMode(true);
-
-    const newData = JSON.parse(JSON.stringify(currentData));
-    const row = newData[airport].find((r: RowData) => r.key === rowId);
-    if (row) {
-      action(row.options);
-      updateStaging(newData);
-    }
-  };
-
   const deleteOption = (rowId: string, index: number) => {
-    modifyOptions(rowId, (options) => {
+    modifyOptions(airport, rowId, (options) => {
       options.splice(index, 1);
     });
   };
 
   const reorderOptions = (rowId: string, from: number, to: number) => {
-    modifyOptions(rowId, (options) => {
+    modifyOptions(airport, rowId, (options) => {
       const moved = options.splice(from, 1)[0];
       if (moved) options.splice(to, 0, moved);
     });
   };
-
-  // --- CLIPBOARD ---
-  const [clipboardPlan, setClipboardPlan] = useState<Option[] | null>(null);
 
   const handleCopyPlan = (options: Option[]) => {
     setClipboardPlan(JSON.parse(JSON.stringify(options)));
@@ -251,115 +182,14 @@ export default function App() {
       setPasteContext({ rowId });
       setConfirmModal({ isOpen: true, type: "paste" });
     } else {
-      modifyOptions(rowId, (options) => {
+      modifyOptions(airport, rowId, (options) => {
         options.length = 0;
         options.push(...JSON.parse(JSON.stringify(clipboardPlan)));
       });
     }
   };
 
-  // --- BLOCK MANIPULATION ---
-  const handleBlockAdd = (b: Omit<ReserveBlock, "id">) => {
-    const newB: ReserveBlock = { ...b, id: Date.now().toString() };
-    const next = [...reserveBlocks, newB];
-    setReserveBlocks(next);
-    DataService.addBlock(newB);
-    if (next.length === 1) setActiveBlockId(newB.id);
-  };
-
-  const handleBlockEdit = (id: string, b: Partial<ReserveBlock>) => {
-    const next = reserveBlocks.map((blk) => (blk.id === id ? { ...blk, ...b } : blk));
-    setReserveBlocks(next);
-    const updated = next.find((blk) => blk.id === id);
-    if (updated) DataService.updateBlock(updated);
-  };
-
-  const handleBlockDelete = (id: string) => {
-    const next = reserveBlocks.filter((b) => b.id !== id);
-    setReserveBlocks(next);
-    DataService.deleteBlock(id);
-    if (activeBlockId === id) setActiveBlockId(next[0]?.id || null);
-  };
-
-  // --- REFRESH ---
-  const handleGlobalRefresh = async () => {
-    if (AuthService.isGuest()) {
-      alert("Flight search is disabled in Guest Mode.");
-      return;
-    }
-    setLoading(true);
-    try {
-      let allFlights: FlightSegment[] = [];
-      const sourceData = isEditMode && stagingData ? stagingData : scheduleData;
-
-      Object.values(sourceData).forEach((airportRows) => {
-        airportRows.forEach((row) => {
-          row.options.forEach((opt) => {
-            if (opt.segments)
-              opt.segments.forEach((s) => {
-                if (s.flight) allFlights.push(s);
-              });
-            if (opt.inbound)
-              (Array.isArray(opt.inbound) ? opt.inbound : [opt.inbound]).forEach((s) => {
-                if (s.flight) allFlights.push(s);
-              });
-            if (opt.outbound)
-              opt.outbound.forEach((s) => {
-                if (s.flight) allFlights.push(s);
-              });
-          });
-        });
-      });
-
-      const uniqueFlights = [...new Set(allFlights.map((f) => f.flight))]
-        .map((fNum) => {
-          return allFlights.find((obj) => obj.flight === fNum);
-        })
-        .filter((f): f is FlightSegment => !!f);
-
-      const newStatuses = { ...flightStatuses };
-      const flightsToFetch: FlightSegment[] = [];
-
-      await Promise.all(
-        uniqueFlights.map(async (f) => {
-          const cached = await FlightService.getCachedStatus(f.flight);
-          if (cached) newStatuses[f.flight] = cached;
-          else flightsToFetch.push(f);
-        }),
-      );
-
-      if (flightsToFetch.length > 0) {
-        const chunkSize = 15;
-        const today = new Date().toISOString().split("T")[0] || "";
-        for (let i = 0; i < flightsToFetch.length; i += chunkSize) {
-          const batch = flightsToFetch.slice(i, i + chunkSize);
-          const apiResults = await FlightService.fetchStatuses(batch, today);
-          if (apiResults) {
-            apiResults.forEach((res) => {
-              if (res.legs && res.legs.length > 0) {
-                const leg = res.legs[0];
-                if (leg) {
-                  const key = `${leg.carrierCodeIATA}${leg.aircraftIdentification.flightNumber}`;
-                  FlightService.setCachedStatus(key, leg);
-                  newStatuses[key] = leg;
-                }
-              }
-            });
-          }
-        }
-      }
-
-      setFlightStatuses(newStatuses);
-    } catch (e) {
-      console.error("Error refreshing flights:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // --- RENDERING ---
-
-  const activeData = isEditMode && stagingData ? stagingData : scheduleData;
 
   let timelineRows: TimelineRowData[] = [];
   const activeBlock = reserveBlocks.find((b) => b.id === activeBlockId);
@@ -379,131 +209,24 @@ export default function App() {
 
   return (
     <div className={`min-h-screen font-sans text-gray-900 pb-20 ${isEditMode ? "bg-gray-100" : "bg-white"}`}>
-      {/* Header */}
-      <div
-        className={`sticky top-0 z-100 border-b shadow-sm transition-colors ${isEditMode ? "bg-yellow-50 border-yellow-200" : "bg-white border-gray-200"}`}
-      >
-        {isEditMode && (
-          <div className="bg-yellow-400 text-yellow-900 text-xs font-bold text-center py-0.5">
-            EDITING MODE — Unsaved Changes
-          </div>
-        )}
-        <div className="max-w-6xl mx-auto px-4 py-2">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2">
-              <div className="bg-indigo-600 text-white p-1 rounded">
-                <Plane size={16} />
-              </div>
-              <span className="font-bold text-sm tracking-tight hidden sm:inline">
-                Reserve<span className="text-indigo-600">Lite</span>
-              </span>
-              <div className="h-4 w-px bg-gray-300 mx-2"></div>
-              <div className="flex bg-gray-100 p-0.5 rounded-lg">
-                {["LAX", "ONT", "SNA", "BUR"].map((code) => (
-                  <button
-                    key={code}
-                    onClick={() => setAirport(code)}
-                    className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${airport === code ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"}`}
-                  >
-                    {code}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {activeBlock && (
-              <button
-                onClick={() => setModals({ ...modals, blocks: true })}
-                className="flex flex-col items-center hover:bg-gray-50 px-2 rounded transition-colors group"
-              >
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide group-hover:text-indigo-500">
-                  Active Block
-                </span>
-                <span className="text-xs font-bold text-indigo-600 flex items-center gap-1">
-                  {new Date(activeBlock.start).toLocaleDateString(undefined, { month: "short", day: "numeric" })} -{" "}
-                  {new Date(activeBlock.end).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
-                  <span className="bg-indigo-50 px-1 rounded ml-1 border border-indigo-100">
-                    {activeBlock.homeBase || config.homeBase}
-                  </span>
-                </span>
-              </button>
-            )}
-
-            <div className="flex items-center gap-2">
-              {!isEditMode ? (
-                <>
-                  <button
-                    onClick={enterEditMode}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-blue-50 text-blue-600 rounded-full font-bold text-xs hover:bg-blue-100 transition-colors"
-                  >
-                    <Edit3 size={14} /> Edit Plan
-                  </button>
-                  <div className="h-4 w-px bg-gray-300 mx-1"></div>
-                  <button
-                    onClick={handleGlobalRefresh}
-                    className={`p-2 rounded-full hover:bg-gray-100 text-gray-500 ${loading ? "animate-spin" : ""}`}
-                    title="Refresh All Flights"
-                  >
-                    <RefreshCw size={16} />
-                  </button>
-                  <button
-                    onClick={() => setModals({ ...modals, config: true })}
-                    className="p-2 text-gray-400 hover:text-gray-600"
-                  >
-                    <Settings size={16} />
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    onClick={handleUndo}
-                    disabled={history.length === 0}
-                    className="p-2 text-gray-500 disabled:opacity-30 hover:bg-gray-200 rounded-full"
-                  >
-                    <Undo size={16} />
-                  </button>
-                  <button
-                    onClick={handleRedo}
-                    disabled={future.length === 0}
-                    className="p-2 text-gray-500 disabled:opacity-30 hover:bg-gray-200 rounded-full"
-                  >
-                    <Redo size={16} />
-                  </button>
-                  <div className="h-4 w-px bg-gray-300 mx-1"></div>
-                  <button
-                    onClick={() => setConfirmModal({ isOpen: true, type: "discard" })}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 text-gray-600 rounded-full font-bold text-xs hover:bg-gray-300"
-                  >
-                    Discard
-                  </button>
-                  <button
-                    onClick={() => setConfirmModal({ isOpen: true, type: "commit" })}
-                    className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-full font-bold text-xs hover:bg-green-700 shadow-sm"
-                  >
-                    <Save size={14} /> Save
-                  </button>
-                </>
-              )}
-              {user?.id === "GUEST" ? (
-                <button
-                  onClick={executeGuestLogin}
-                  className="bg-indigo-600 text-white px-3 py-1.5 rounded-full font-bold text-xs hover:bg-indigo-700 ml-2 shadow-sm"
-                >
-                  Log In
-                </button>
-              ) : (
-                <button
-                  onClick={() => setConfirmModal({ isOpen: true, type: "logout" })}
-                  className="p-2 rounded-full hover:bg-red-50 text-red-500 ml-2"
-                  title="Logout"
-                >
-                  <LogOut size={16} />
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
+      <Header
+        isEditMode={isEditMode}
+        airport={airport}
+        setAirport={setAirport}
+        activeBlock={activeBlock}
+        config={config}
+        setModals={setModals}
+        enterEditMode={enterEditMode}
+        handleGlobalRefresh={() => refreshFlights(activeData)}
+        loading={loading}
+        handleUndo={handleUndo}
+        handleRedo={handleRedo}
+        history={history}
+        future={future}
+        setConfirmModal={setConfirmModal}
+        user={user}
+        executeGuestLogin={executeGuestLogin}
+      />
 
       <main className="max-w-6xl mx-auto min-h-125 border-x border-gray-100 shadow-sm bg-white">
         {timelineRows.length > 0 ? (
@@ -539,7 +262,7 @@ export default function App() {
       <EditOptionModal
         isOpen={modals.edit}
         onClose={() => setModals({ ...modals, edit: false })}
-        onSave={saveOptionToStaging}
+        onSave={handleSaveOption}
         initialOption={editContext ? editContext.option : null}
         dateContext={editContext ? editContext.dateContext : ""}
         config={config}
