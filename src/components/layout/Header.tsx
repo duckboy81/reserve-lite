@@ -18,6 +18,7 @@ interface HeaderProps {
     setConfirmModal: (modal: { isOpen: boolean; type: "commit" | "discard" | "logout" | "paste" | null }) => void;
     user: User | null;
     executeGuestLogin: () => void;
+    onSave: () => void;
 }
 
 export default function Header({
@@ -37,6 +38,7 @@ export default function Header({
     setConfirmModal,
     user,
     executeGuestLogin,
+    onSave,
 }: HeaderProps) {
     return (
         <div
@@ -138,7 +140,7 @@ export default function Header({
                                     Discard
                                 </button>
                                 <button
-                                    onClick={() => setConfirmModal({ isOpen: true, type: "commit" })}
+                                    onClick={onSave}
                                     className="flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-full font-bold text-xs hover:bg-green-700 shadow-sm"
                                 >
                                     <Save size={14} /> Save

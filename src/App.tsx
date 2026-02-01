@@ -226,6 +226,7 @@ export default function App() {
         setConfirmModal={setConfirmModal}
         user={user}
         executeGuestLogin={executeGuestLogin}
+        onSave={executeCommit}
       />
 
       <main className="max-w-6xl mx-auto min-h-125 border-x border-gray-100 shadow-sm bg-white">

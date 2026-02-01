@@ -87,7 +87,6 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
         type: "direct",
         segments: cleanSegs,
         finalArr: last.arr,
-        label: last.ground ? `Via ${last.ground.hub}` : undefined,
       };
     } else {
       const cleanInbounds = inbounds.filter((i) => i.flight);
@@ -101,7 +100,6 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
       finalOpt = {
         type: "hub-strategy",
         hub: hubLabel,
-        label: `${hubLabel} Strategy`,
         inbound: cleanInbounds,
         outbound: flaggedOut,
       };
@@ -195,8 +193,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
                         {h}
                       </button>
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
+                        onClick={() => {
                           RecentAirports.remove(h);
                           setRecentHubs(RecentAirports.get().filter((x) => !COMMON_HUBS.includes(x)));
                         }}

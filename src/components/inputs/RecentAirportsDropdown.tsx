@@ -19,8 +19,7 @@ const RecentAirportsDropdown: React.FC<RecentAirportsDropdownProps> = ({ recentA
             {code}
           </span>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
+            onClick={() => {
               onRemove(code);
             }}
             className="text-gray-300 hover:text-red-500"
