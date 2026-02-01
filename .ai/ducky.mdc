@@ -1,0 +1,6 @@
+---
+description: Code Quality Guidelines
+globs: **/*.tsx, **/*.ts, src/**/*.ts, src/**/*.tsx
+---
+
+- Use `React.SyntheticEvent<HTMLFormElement>` in place of `React.FormEvent<HTMLFormElement>` and similar uses.

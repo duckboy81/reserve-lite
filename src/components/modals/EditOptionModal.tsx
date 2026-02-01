@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Edit3, X } from "lucide-react";
 import FlightInput from "../inputs/FlightInput";
 import HubStrategyInputs from "./HubStrategyInputs";
-import { COMMON_HUBS } from "../../config/constants";
 import { RecentAirports } from "../../services/StorageService";
 import { moveItem } from "../../utils/dateUtil";
 import { Option, Config, FlightSegment } from "../../types";
@@ -37,7 +36,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setRecentHubs(RecentAirports.get().filter((h) => !COMMON_HUBS.includes(h)));
+      setRecentHubs(RecentAirports.get());
     }
   }, [isOpen]);
 
@@ -175,15 +174,6 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
               <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
                 <label className="block text-xs font-bold text-indigo-800 uppercase mb-2">Connecting Hub</label>
                 <div className="flex flex-wrap gap-2 mb-2">
-                  {COMMON_HUBS.map((h) => (
-                    <button
-                      key={h}
-                      onClick={() => setHub(h)}
-                      className={`text-xs px-2 py-1 rounded border font-bold ${hub === h ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-indigo-600 border-indigo-200 hover:border-indigo-400"}`}
-                    >
-                      {h}
-                    </button>
-                  ))}
                   {recentHubs.map((h) => (
                     <div key={h} className="relative group">
                       <button
@@ -195,7 +185,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
                       <button
                         onClick={() => {
                           RecentAirports.remove(h);
-                          setRecentHubs(RecentAirports.get().filter((x) => !COMMON_HUBS.includes(x)));
+                          setRecentHubs(RecentAirports.get());
                         }}
                         className="absolute -top-1 -right-1 bg-red-400 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                         title="Remove"

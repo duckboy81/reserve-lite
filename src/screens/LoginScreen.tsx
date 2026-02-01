@@ -35,7 +35,7 @@ const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     }
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.SyntheticEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     setError("");

@@ -44,4 +44,4 @@ export const TIMEZONES = [
   { label: "UTC", value: "UTC" },
 ];
 
-export const COMMON_HUBS = ["DTW", "MSP", "SLC", "SEA", "ATL", "LAX", "JFK", "LGA", "BOS", "CVG"];
+

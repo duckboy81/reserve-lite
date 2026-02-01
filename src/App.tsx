@@ -26,21 +26,21 @@ import ConfigModal from "./components/modals/ConfigModal";
 import BlockManager from "./components/modals/BlockManager";
 import ConfirmModal from "./components/modals/ConfirmModal";
 import Header from "./components/layout/Header";
+import { ConfigScreen } from "./screens/ConfigScreen";
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [airport, setAirport] = useState<string>("ONT");
   const [config, setConfig] = useState<Config>(DEFAULT_CONFIG);
+  const [hasConfigured, setHasConfigured] = useState(false);
 
   // Network State
   const isOnline = useNetworkStatus();
 
-  // Custom Hooks
   const {
-    scheduleData,
     setScheduleData,
     isEditMode,
-    stagingData, // only needed if we want to check it explicitly, but activeData covers it
+    // stagingData, // only needed if we want to check it explicitly, but activeData covers it
     history,
     future,
     enterEditMode,
@@ -96,7 +96,12 @@ export default function App() {
       }
 
       const savedConfig = localStorage.getItem("reserve_lite_config");
-      if (savedConfig) setConfig(JSON.parse(savedConfig));
+      if (savedConfig) {
+        setConfig(JSON.parse(savedConfig));
+        setHasConfigured(true);
+      } else {
+        setHasConfigured(false);
+      }
 
       // Load Data from DB
       const blocks = await DataService.getBlocks();
@@ -311,6 +316,20 @@ export default function App() {
       {!user && (
         <div className="fixed inset-0 z-200 backdrop-blur-sm bg-black/30 flex items-center justify-center">
           <LoginScreen onLogin={setUser} />
+        </div>
+      )}
+
+      {/* Onboarding Overlay */}
+      {user && !hasConfigured && (
+        <div className="fixed inset-0 z-100 bg-white flex items-center justify-center">
+          <ConfigScreen
+            initialConfig={config}
+            onSave={(c: Config) => {
+              setConfig(c);
+              localStorage.setItem("reserve_lite_config", JSON.stringify(c));
+              setHasConfigured(true);
+            }}
+          />
         </div>
       )}
     </div>

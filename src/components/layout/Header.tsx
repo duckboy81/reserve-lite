@@ -1,5 +1,5 @@
 import { Plane, RefreshCw, LogOut, Edit3, Save, Undo, Redo, Settings } from "lucide-react";
-import { Config, ReserveBlock, ScheduleData, User, RowData, Option } from "../../types";
+import { Config, ReserveBlock, ScheduleData, User } from "../../types";
 
 interface HeaderProps {
     isEditMode: boolean;

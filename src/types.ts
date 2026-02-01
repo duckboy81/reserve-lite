@@ -111,6 +111,8 @@ export interface Config {
   reserveBase: string;
   homeTz: string;
   reserveTz: string;
+  commuteBufferHours?: number;
+  releaseBufferHours?: number;
 }
 
 export interface TimelineRowData {
