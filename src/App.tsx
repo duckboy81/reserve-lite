@@ -300,6 +300,7 @@ export default function App() {
           else if (confirmModal.type === "logout") executeLogout();
           else if (confirmModal.type === "paste") executePaste();
           else executeDiscard();
+          setConfirmModal({ isOpen: false, type: null });
         }}
         onCancel={() => setConfirmModal({ isOpen: false, type: null })}
       />
