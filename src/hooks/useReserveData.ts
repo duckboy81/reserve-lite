@@ -34,7 +34,6 @@ export function useReserveData() {
 
     const refreshFlights = async (activeData: ScheduleData) => {
         if (AuthService.isGuest()) {
-            alert("Flight search is disabled in Guest Mode.");
             return;
         }
         setLoading(true);

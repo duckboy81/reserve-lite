@@ -157,7 +157,14 @@ const FlightInput: React.FC<FlightInputProps> = ({
   };
 
   const updateField = <K extends keyof FlightSegment>(field: K, val: FlightSegment[K]) => {
-    onChange({ ...value, [field]: val });
+    let newData = { ...value, [field]: val };
+
+    // Auto-sync ground hub with arrival airport
+    if (field === "arrAirport" && newData.ground) {
+      newData.ground = { ...newData.ground, hub: val as string };
+    }
+
+    onChange(newData);
   };
 
   const toggleGround = () => {
@@ -165,7 +172,7 @@ const FlightInput: React.FC<FlightInputProps> = ({
       const { ground, ...rest } = value;
       onChange(rest);
     } else {
-      onChange({ ...value, ground: { duration: "1.0", hub: value.arrAirport || "UNK", mode: "Uber" } });
+      onChange({ ...value, ground: { duration: "1.0", hub: value.arrAirport || "HUB", mode: "Uber" } });
     }
     setShowGround(!showGround);
   };
@@ -214,11 +221,10 @@ const FlightInput: React.FC<FlightInputProps> = ({
           <div className="relative group/tooltip">
             <button
               onClick={() => !isSearchDisabled && setShowSearch(!showSearch)}
-              className={`text-xs font-bold flex items-center gap-1 px-2 py-1 rounded transition-colors ${
-                isSearchDisabled
-                  ? "text-gray-400 cursor-not-allowed bg-gray-100 hover:bg-gray-100"
-                  : "text-indigo-600 hover:bg-indigo-50 cursor-pointer"
-              }`}
+              className={`text-xs font-bold flex items-center gap-1 px-2 py-1 rounded transition-colors ${isSearchDisabled
+                ? "text-gray-400 cursor-not-allowed bg-gray-100 hover:bg-gray-100"
+                : "text-indigo-600 hover:bg-indigo-50 cursor-pointer"
+                }`}
             >
               <Search size={12} /> {showSearch ? "Cancel Lookup" : "Find Flight"}
             </button>
@@ -410,27 +416,16 @@ const FlightInput: React.FC<FlightInputProps> = ({
           </div>
           {showGround && (
             <div className="flex items-center gap-1 bg-yellow-50 p-1 rounded border border-yellow-200">
-              <span className="text-[10px] text-yellow-800 font-bold">HUB:</span>
-              <input
-                className="w-10 p-0.5 text-xs border rounded uppercase"
-                value={value?.ground?.hub || ""}
-                onChange={(e) =>
-                  updateField("ground", {
-                    duration: value?.ground?.duration || "1.0",
-                    mode: "Uber",
-                    ...value.ground,
-                    hub: e.target.value,
-                  })
-                }
-                placeholder="DTW"
-              />
+              <span className="text-[10px] text-yellow-800 font-bold">
+                Commute in {value?.arrAirport || "HUB"}:
+              </span>
               <span className="text-[10px] text-yellow-800 font-bold ml-1">HRS:</span>
               <input
                 className="w-10 p-0.5 text-xs border rounded"
                 value={value?.ground?.duration || ""}
                 onChange={(e) =>
                   updateField("ground", {
-                    hub: value?.ground?.hub || "UNK",
+                    hub: value?.arrAirport || "HUB",
                     mode: "Uber",
                     ...value.ground,
                     duration: e.target.value,

@@ -102,13 +102,22 @@ export default function Header({
                                     <Edit3 size={14} /> Edit Plan
                                 </button>
                                 <div className="h-4 w-px bg-gray-300 mx-1"></div>
-                                <button
-                                    onClick={handleGlobalRefresh}
-                                    className={`p-2 rounded-full hover:bg-gray-100 text-gray-500 ${loading ? "animate-spin" : ""}`}
-                                    title="Refresh All Flights"
-                                >
-                                    <RefreshCw size={16} />
-                                </button>
+                                <div className="relative group/tooltip">
+                                    <button
+                                        onClick={() => {
+                                            if (user?.id !== "GUEST") handleGlobalRefresh();
+                                        }}
+                                        className={`p-2 rounded-full hover:bg-gray-100 text-gray-500 ${loading ? "animate-spin" : ""} ${user?.id === "GUEST" ? "opacity-50 cursor-not-allowed" : ""}`}
+                                        title={user?.id === "GUEST" ? "" : "Refresh All Flights"}
+                                    >
+                                        <RefreshCw size={16} />
+                                    </button>
+                                    {user?.id === "GUEST" && (
+                                        <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-sm opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+                                            Sign in to use flight search
+                                        </span>
+                                    )}
+                                </div>
                                 <button
                                     onClick={() => setModals((prev: any) => ({ ...prev, config: true }))}
                                     className="p-2 text-gray-400 hover:text-gray-600"

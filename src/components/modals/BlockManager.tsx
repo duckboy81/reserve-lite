@@ -33,8 +33,22 @@ const BlockManager: React.FC<BlockManagerProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
 
+  const [error, setError] = useState<string | null>(null);
+
   const handleSave = () => {
     if (!start || !end) return;
+
+    // Validate Duration (max 62 days)
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 62) {
+      setError("Reserve blocks cannot exceed 62 days (approx 2 months).");
+      return;
+    }
+
     const fullStart = `${start}T10:00:00`;
     const fullEnd = `${end}T06:00:00`;
     if (isEditing && editId) onEdit(editId, { start: fullStart, end: fullEnd, homeBase });
@@ -43,6 +57,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({
     setIsEditing(false);
     setStart("");
     setEnd("");
+    setError(null);
     setHomeBase(DEFAULT_CONFIG.homeBase);
   };
 
@@ -51,6 +66,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({
     setEnd(block.end.split("T")[0] || "");
     setHomeBase(block.homeBase || DEFAULT_CONFIG.homeBase);
     setIsEditing(false);
+    setError(null);
     setShowForm(true);
   };
 
@@ -61,6 +77,11 @@ const BlockManager: React.FC<BlockManagerProps> = ({
         <h3 className="font-bold text-lg mb-4">Manage Reserve Blocks</h3>
         {showForm ? (
           <div className="bg-gray-50 p-3 rounded mb-4 border border-gray-200">
+            {error && (
+              <div className="mb-2 p-2 bg-red-50 text-red-600 text-xs rounded border border-red-100 font-bold">
+                {error}
+              </div>
+            )}
             <div className="grid grid-cols-3 gap-2 mb-2">
               <div className="col-span-1">
                 <label className="text-xs font-bold text-gray-500">First Day</label>
@@ -110,6 +131,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({
               setStart("");
               setEnd("");
               setHomeBase(DEFAULT_CONFIG.homeBase);
+              setError(null);
             }}
             className="w-full bg-indigo-50 text-indigo-600 py-2 rounded mb-4 font-bold text-sm border border-indigo-100 hover:bg-indigo-100 flex items-center justify-center gap-2"
           >
@@ -153,6 +175,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({
                     setHomeBase(b.homeBase || DEFAULT_CONFIG.homeBase);
                     setEditId(b.id);
                     setIsEditing(true);
+                    setError(null);
                     setShowForm(true);
                   }}
                   className="text-gray-400 hover:text-indigo-600 p-1"
