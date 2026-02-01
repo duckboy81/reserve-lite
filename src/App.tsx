@@ -17,7 +17,7 @@ import TimelineRow from "./components/timeline/TimelineRow";
 import EditOptionModal from "./components/modals/EditOptionModal";
 import ConfigModal from "./components/modals/ConfigModal";
 import BlockManager from "./components/modals/BlockManager";
-import ConfirmModal from "./components/modals/ConfirmModal";
+import ConfirmModal, { ConfirmType } from "./components/modals/ConfirmModal";
 import Header from "./components/layout/Header";
 import { ConfigScreen } from "./screens/ConfigScreen";
 
@@ -68,7 +68,7 @@ export default function App() {
   // Confirmation Modal State
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
-    type: "commit" | "discard" | "logout" | "paste" | null;
+    type: ConfirmType | null;
   }>({ isOpen: false, type: null });
   const [pasteContext, setPasteContext] = useState<{ rowId: string } | null>(null);
 
@@ -108,7 +108,7 @@ export default function App() {
       let activeBlockIdToSet = null;
       const savedActiveId = localStorage.getItem("reserve_lite_active_block");
 
-      if (savedActiveId && blocks.some(b => b.id === savedActiveId)) {
+      if (savedActiveId && blocks.some((b) => b.id === savedActiveId)) {
         activeBlockIdToSet = savedActiveId;
       } else {
         const activeBlock = blocks.find((b) => !b.isDeleted && !b.isArchived) || blocks[0];

@@ -1,5 +1,6 @@
 import { Plane, RefreshCw, LogOut, Edit3, Save, Undo, Redo, Settings } from "lucide-react";
 import { Config, ReserveBlock, ScheduleData, User } from "../../types";
+import { ConfirmType } from "../modals/ConfirmModal.tsx";
 
 interface HeaderProps {
   isEditMode: boolean;
@@ -15,7 +16,7 @@ interface HeaderProps {
   handleRedo: () => void;
   history: ScheduleData[];
   future: ScheduleData[];
-  setConfirmModal: (modal: { isOpen: boolean; type: "commit" | "discard" | "logout" | "paste" | null }) => void;
+  setConfirmModal: (modal: { isOpen: boolean; type: ConfirmType | null }) => void;
   user: User | null;
   executeGuestLogin: () => void;
   onSave: () => void;
