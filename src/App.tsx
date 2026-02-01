@@ -5,14 +5,7 @@ import { DataService } from "./services/DataService";
 import { generateTimeline } from "./utils/dateUtil";
 import { DEFAULT_CONFIG } from "./config/constants";
 
-import {
-  Config,
-  User,
-  Option,
-  TimelineRowData,
-  EditContext,
-  RowData
-} from "./types";
+import { Config, User, Option, TimelineRowData, EditContext, RowData } from "./types";
 
 import { useNetworkStatus } from "./hooks/useNetworkStatus";
 import { useScheduleManager } from "./hooks/useScheduleManager";
@@ -50,7 +43,7 @@ export default function App() {
     handleRedo,
     modifyOptions,
     saveOptionToStaging,
-    activeData
+    activeData,
   } = useScheduleManager();
 
   const {
@@ -64,7 +57,8 @@ export default function App() {
     handleBlockAdd,
     handleBlockEdit,
     handleBlockDelete,
-    refreshFlights
+    handleBlockRestore,
+    refreshFlights,
   } = useReserveData();
 
   // UI State
@@ -107,13 +101,13 @@ export default function App() {
       const blocks = await DataService.getBlocks();
       const schedule = await DataService.getSchedule();
 
-      // Filter out deleted/archived blocks for main view
-      const activeBlocks = blocks.filter((b) => !b.isDeleted && !b.isArchived);
-      setReserveBlocks(activeBlocks);
+      setReserveBlocks(blocks);
       setScheduleData(schedule);
 
-      if (activeBlocks.length > 0) {
-        setActiveBlockId(activeBlocks[0]?.id || null);
+      // Default to the first active block, or just the first block if none active
+      const activeBlock = blocks.find((b) => !b.isDeleted && !b.isArchived) || blocks[0];
+      if (activeBlock) {
+        setActiveBlockId(activeBlock.id);
       }
 
       setLoading(false);
@@ -295,6 +289,7 @@ export default function App() {
         onAdd={handleBlockAdd}
         onEdit={handleBlockEdit}
         onDelete={handleBlockDelete}
+        onRestore={handleBlockRestore}
         config={config}
       />
 

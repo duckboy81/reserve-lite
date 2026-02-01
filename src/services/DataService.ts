@@ -1,7 +1,8 @@
 import { db, FlightCacheItem, ScheduleRow } from "../db/ReserveDatabase";
 import { ReserveBlock, ScheduleData, RowData } from "../types";
 
-const TRASH_RETENTION_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
+const TRASH_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
+const ARCHIVE_RETENTION_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
 // Helpers
 const flattenSchedule = (data: ScheduleData): ScheduleRow[] => {
@@ -84,7 +85,10 @@ export const DataService = {
   },
 
   // Block Methods
-  getBlocks: (): Promise<ReserveBlock[]> => db.blocks.toArray(),
+  getBlocks: (): Promise<ReserveBlock[]> =>
+    db.blocks.toArray().then(blocks =>
+      blocks.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+    ),
   addBlock: (block: ReserveBlock) => db.blocks.put(block),
   updateBlock: (block: ReserveBlock) => db.blocks.put(block),
   deleteBlock: async (id: string, permanent = false): Promise<void> => {
@@ -124,30 +128,65 @@ export const DataService = {
 
   // Lifecycle Methods
   processLifecycle: async (): Promise<void> => {
-    // Trash Cleanup
-    const cutoffDate = Date.now() - TRASH_RETENTION_MS;
-    await db.blocks
-      .filter((b) => b.isDeleted === true && !!b.deletedAt && b.deletedAt < cutoffDate)
-      .delete();
+    const now = Date.now();
 
-    // Archive Auto-Move
-    const now = new Date();
-    const blocks = await db.blocks.filter((b) => !b.isDeleted && !b.isArchived).toArray();
+    // 1. Move expired active blocks to Archive
+    const activeBlocks = await db.blocks.filter((b) => !b.isDeleted && !b.isArchived).toArray();
     const toArchive: string[] = [];
 
-    blocks.forEach((b) => {
+    activeBlocks.forEach((b) => {
       const endDate = new Date(b.end);
       // Archive if now > endDate + 1 day
       const archiveCutoff = new Date(endDate);
       archiveCutoff.setDate(archiveCutoff.getDate() + 1);
 
-      if (now > archiveCutoff) {
+      if (now > archiveCutoff.getTime()) {
         toArchive.push(b.id);
       }
     });
 
     if (toArchive.length > 0) {
       await db.blocks.where("id").anyOf(toArchive).modify({ isArchived: true });
+    }
+
+    // 2. Trash Cleanup (Safe Retention: Last 10)
+    const trashBlocks = await db.blocks.filter((b) => !!b.isDeleted).toArray();
+    // Sort by deletedAt desc (newest deleted first)
+    trashBlocks.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
+
+    // Keep top 10, check the rest for expiration
+    const trashToDelete: string[] = [];
+    const trashCutoffDate = now - TRASH_RETENTION_MS;
+
+    trashBlocks.forEach((b, index) => {
+      if (index < 10) return; // Always keep the last 10 deleted blocks
+      if (b.deletedAt && b.deletedAt < trashCutoffDate) {
+        trashToDelete.push(b.id);
+      }
+    });
+
+    if (trashToDelete.length > 0) {
+      await db.blocks.bulkDelete(trashToDelete);
+    }
+
+    // 3. Archive Cleanup (Safe Retention: Last 10)
+    const archiveBlocks = await db.blocks.filter((b) => !!b.isArchived && !b.isDeleted).toArray();
+    // Sort by end date desc (newest archive first)
+    archiveBlocks.sort((a, b) => new Date(b.end).getTime() - new Date(a.end).getTime());
+
+    // Keep top 10, check the rest for expiration
+    const archiveToDelete: string[] = [];
+    const archiveCutoffDate = now - ARCHIVE_RETENTION_MS;
+
+    archiveBlocks.forEach((b, index) => {
+      if (index < 10) return; // Always keep the last 10 archived blocks
+      if (new Date(b.end).getTime() < archiveCutoffDate) {
+        archiveToDelete.push(b.id);
+      }
+    });
+
+    if (archiveToDelete.length > 0) {
+      await db.blocks.bulkDelete(archiveToDelete);
     }
   },
 

@@ -12,24 +12,37 @@ export function useReserveData() {
 
     const handleBlockAdd = (b: Omit<ReserveBlock, "id">) => {
         const newB: ReserveBlock = { ...b, id: Date.now().toString() };
-        const next = [...reserveBlocks, newB];
+        const next = [...reserveBlocks, newB].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
         setReserveBlocks(next);
         DataService.addBlock(newB);
-        if (next.length === 1) setActiveBlockId(newB.id);
+        setActiveBlockId(newB.id);
     };
 
     const handleBlockEdit = (id: string, b: Partial<ReserveBlock>) => {
-        const next = reserveBlocks.map((blk) => (blk.id === id ? { ...blk, ...b } : blk));
+        const next = reserveBlocks
+            .map((blk) => (blk.id === id ? { ...blk, ...b } : blk))
+            .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
         setReserveBlocks(next);
         const updated = next.find((blk) => blk.id === id);
         if (updated) DataService.updateBlock(updated);
     };
 
     const handleBlockDelete = (id: string) => {
-        const next = reserveBlocks.filter((b) => b.id !== id);
+        const next = reserveBlocks
+            .map((b) => (b.id === id ? { ...b, isDeleted: true, deletedAt: Date.now() } : b))
+            .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
         setReserveBlocks(next);
+        const activeBlock = next.reverse().find((b) => !b.isDeleted && !b.isArchived && b.id <= id) || next[0];
+        if (activeBlock) setActiveBlockId(activeBlock.id);
         DataService.deleteBlock(id);
-        if (activeBlockId === id) setActiveBlockId(next[0]?.id || null);
+    };
+
+    const handleBlockRestore = (id: string) => {
+        const next = reserveBlocks
+            .map((b) => (b.id === id ? { ...b, isDeleted: false, deletedAt: undefined as any } : b))
+            .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+        setReserveBlocks(next);
+        DataService.restoreBlock(id);
     };
 
     const refreshFlights = async (activeData: ScheduleData) => {
@@ -116,6 +129,7 @@ export function useReserveData() {
         handleBlockAdd,
         handleBlockEdit,
         handleBlockDelete,
-        refreshFlights
+        handleBlockRestore,
+        refreshFlights,
     };
 }

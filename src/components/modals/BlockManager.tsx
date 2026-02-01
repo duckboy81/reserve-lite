@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Plus, CheckCircle, Pencil, Trash2 } from "lucide-react";
+import React, { useState, useMemo, useEffect } from "react";
+import { Plus, CheckCircle, Pencil, Trash2, RotateCcw } from "lucide-react";
 import { ReserveBlock } from "../../types";
 import { DEFAULT_CONFIG, TIMEZONES } from "../../config/constants";
 import { Config } from "../../types";
@@ -13,17 +13,7 @@ interface BlockManagerProps {
   onAdd: (block: Omit<ReserveBlock, "id">) => void;
   onEdit: (id: string, block: Partial<ReserveBlock>) => void;
   onDelete: (id: string) => void;
-  onSelect: (id: string) => void;
-  activeId: string | null;
-}
-
-interface BlockManagerProps {
-  isOpen: boolean;
-  onClose: () => void;
-  blocks: ReserveBlock[];
-  onAdd: (block: Omit<ReserveBlock, "id">) => void;
-  onEdit: (id: string, block: Partial<ReserveBlock>) => void;
-  onDelete: (id: string) => void;
+  onRestore: (id: string) => void;
   onSelect: (id: string) => void;
   activeId: string | null;
   config: Config;
@@ -36,6 +26,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({
   onAdd,
   onEdit,
   onDelete,
+  onRestore,
   onSelect,
   activeId,
   config,
@@ -48,8 +39,26 @@ const BlockManager: React.FC<BlockManagerProps> = ({
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [tab, setTab] = useState<"active" | "archive" | "trash">("active");
 
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (tab !== "active") {
+      setShowForm(false);
+    }
+  }, [tab]);
+
+  const filteredBlocks = useMemo(() => {
+    return blocks
+      .filter((b) => {
+        if (tab === "active") return !b.isDeleted && !b.isArchived;
+        if (tab === "archive") return !b.isDeleted && b.isArchived;
+        if (tab === "trash") return b.isDeleted;
+        return false;
+      })
+      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+  }, [blocks, tab]);
 
   const handleSave = () => {
     if (!start || !end) return;
@@ -155,6 +164,29 @@ const BlockManager: React.FC<BlockManagerProps> = ({
             </div>
           </div>
         ) : (
+          <div className="flex border-b border-gray-200 mb-4">
+            <button
+              className={`flex-1 pb-2 text-xs font-bold ${tab === "active" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-gray-400"}`}
+              onClick={() => setTab("active")}
+            >
+              Active
+            </button>
+            <button
+              className={`flex-1 pb-2 text-xs font-bold ${tab === "archive" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-gray-400"}`}
+              onClick={() => setTab("archive")}
+            >
+              Archive
+            </button>
+            <button
+              className={`flex-1 pb-2 text-xs font-bold ${tab === "trash" ? "text-indigo-600 border-b-2 border-indigo-600" : "text-gray-400"}`}
+              onClick={() => setTab("trash")}
+            >
+              Trash
+            </button>
+          </div>
+        )}
+
+        {tab === "active" && !showForm && (
           <button
             onClick={() => {
               setShowForm(true);
@@ -170,14 +202,19 @@ const BlockManager: React.FC<BlockManagerProps> = ({
             <Plus size={16} /> Add New Block
           </button>
         )}
+
         <div className="max-h-60 overflow-y-auto space-y-2">
-          {blocks.map((b) => (
+          {filteredBlocks.length === 0 && (
+            <div className="text-center text-gray-400 text-xs py-4">No {tab} blocks found.</div>
+          )}
+          {filteredBlocks.map((b) => (
             <div
               key={b.id}
-              className={`p-3 rounded border flex justify-between items-center ${activeId === b.id ? "border-indigo-500 bg-indigo-50" : "border-gray-200"
+              className={`p-3 rounded border flex justify-between items-center cursor-pointer ${activeId === b.id ? "border-indigo-500 bg-indigo-50" : "border-gray-200"
                 }`}
+              onClick={() => onSelect(b.id)}
             >
-              <div onClick={() => onSelect(b.id)} className="cursor-pointer flex-1 group">
+              <div className="flex-1 group">
                 <div className="text-xs text-gray-500 flex gap-2">
                   <span>
                     {new Date(b.start).toLocaleDateString(undefined, {
@@ -200,44 +237,57 @@ const BlockManager: React.FC<BlockManagerProps> = ({
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <button
-                  onClick={() => handleClone(b)}
-                  className="text-gray-400 hover:text-blue-500 p-1"
-                  title="Clone Block"
-                >
-                  <Copy size={14} />
-                </button>
-                <div className="w-px h-3 bg-gray-300 mx-1"></div>
-                <button
-                  onClick={() => {
-                    setStart(b.start.split("T")[0] || "");
-                    setEnd(b.end.split("T")[0] || "");
-                    setHomeBase(b.homeBase || config.homeBase);
-                    setTimezone(b.timezone || config.homeTz);
-                    setEditId(b.id);
-                    setIsEditing(true);
-                    setError(null);
-                    setShowForm(true);
-                  }}
-                  className="text-gray-400 hover:text-indigo-600 p-1"
-                >
-                  <Pencil size={14} />
-                </button>
-                <button
-                  onClick={() => {
-                    if (deleteConfirm === b.id) {
-                      onDelete(b.id);
-                      setDeleteConfirm(null);
-                    } else {
-                      setDeleteConfirm(b.id);
-                      // Auto-clear confirmation after 3 seconds
-                      setTimeout(() => setDeleteConfirm(null), 3000);
-                    }
-                  }}
-                  className={`p-1 rounded transition-colors ${deleteConfirm === b.id ? "bg-red-500 text-white px-2 text-xs font-bold" : "text-red-300 hover:text-red-500"}`}
-                >
-                  {deleteConfirm === b.id ? "Sure?" : <Trash2 size={14} />}
-                </button>
+                {tab === "active" && (
+                  <>
+                    <button
+                      onClick={() => handleClone(b)}
+                      className="text-gray-400 hover:text-blue-500 p-1"
+                      title="Clone Block"
+                    >
+                      <Copy size={14} />
+                    </button>
+                    <div className="w-px h-3 bg-gray-300 mx-1"></div>
+                    <button
+                      onClick={() => {
+                        setStart(b.start.split("T")[0] || "");
+                        setEnd(b.end.split("T")[0] || "");
+                        setHomeBase(b.homeBase || config.homeBase);
+                        setTimezone(b.timezone || config.homeTz);
+                        setEditId(b.id);
+                        setIsEditing(true);
+                        setError(null);
+                        setShowForm(true);
+                      }}
+                      className="text-gray-400 hover:text-indigo-600 p-1"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (deleteConfirm === b.id) {
+                          onDelete(b.id);
+                          setDeleteConfirm(null);
+                        } else {
+                          setDeleteConfirm(b.id);
+                          setTimeout(() => setDeleteConfirm(null), 3000);
+                        }
+                      }}
+                      className={`p-1 rounded transition-colors ${deleteConfirm === b.id ? "bg-red-500 text-white px-2 text-xs font-bold" : "text-red-300 hover:text-red-500"}`}
+                    >
+                      {deleteConfirm === b.id ? "Sure?" : <Trash2 size={14} />}
+                    </button>
+                  </>
+                )}
+                {tab === "trash" && (
+                  <button
+                    onClick={() => onRestore(b.id)}
+                    className="text-green-500 hover:text-green-700 p-1 flex items-center gap-1 text-xs font-bold"
+                    title="Restore Block"
+                  >
+                    <RotateCcw size={14} /> Restore
+                  </button>
+                )}
+                {tab === "archive" && <span className="text-xs text-gray-400 italic">Archived</span>}
               </div>
             </div>
           ))}
