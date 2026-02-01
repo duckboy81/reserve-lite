@@ -1,6 +1,12 @@
 // noinspection JSUnusedGlobalSymbols
 
-import { Config, TimelineRowData } from "../types";
+import { Config, TimelineRowData, ReserveBlock } from "../types";
+
+export const compareBlocks = (a: ReserveBlock, b: ReserveBlock): number => {
+  const startDiff = new Date(a.start).getTime() - new Date(b.start).getTime();
+  if (startDiff !== 0) return startDiff;
+  return new Date(a.end).getTime() - new Date(b.end).getTime();
+}
 
 export const formatDate = (date: Date): string => date.toISOString().split("T")[0] || "";
 

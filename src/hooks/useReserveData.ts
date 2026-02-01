@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ReserveBlock, FlightStatus, FlightSegment, ScheduleData, RowData } from "../types";
 import { DataService } from "../services/DataService";
 import { FlightService } from "../services/FlightService";
@@ -10,6 +10,13 @@ export function useReserveData() {
     const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
     const [flightStatuses, setFlightStatuses] = useState<Record<string, FlightStatus>>({});
     const [loading, setLoading] = useState<boolean>(false);
+
+    // Persist active block selection
+    useEffect(() => {
+        if (activeBlockId) {
+            localStorage.setItem("reserve_lite_active_block", activeBlockId);
+        }
+    }, [activeBlockId]);
 
     const handleBlockAdd = (b: Omit<ReserveBlock, "id">) => {
         const newB: ReserveBlock = { ...b, id: Date.now().toString() };

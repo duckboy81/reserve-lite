@@ -105,9 +105,18 @@ export default function App() {
       setScheduleData(schedule);
 
       // Default to the first active block, or just the first block if none active
-      const activeBlock = blocks.find((b) => !b.isDeleted && !b.isArchived) || blocks[0];
-      if (activeBlock) {
-        setActiveBlockId(activeBlock.id);
+      let activeBlockIdToSet = null;
+      const savedActiveId = localStorage.getItem("reserve_lite_active_block");
+
+      if (savedActiveId && blocks.some(b => b.id === savedActiveId)) {
+        activeBlockIdToSet = savedActiveId;
+      } else {
+        const activeBlock = blocks.find((b) => !b.isDeleted && !b.isArchived) || blocks[0];
+        if (activeBlock) activeBlockIdToSet = activeBlock.id;
+      }
+
+      if (activeBlockIdToSet) {
+        setActiveBlockId(activeBlockIdToSet);
       }
 
       setLoading(false);
