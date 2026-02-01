@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { Plus, CheckCircle, Pencil, Trash2 } from "lucide-react";
 import { ReserveBlock } from "../../types";
+import { DEFAULT_CONFIG, TIMEZONES } from "../../config/constants";
+import { Config } from "../../types";
+import { Copy, Clock } from "lucide-react";
 
 interface BlockManagerProps {
   isOpen: boolean;
@@ -13,8 +16,17 @@ interface BlockManagerProps {
   activeId: string | null;
 }
 
-import { DEFAULT_CONFIG } from "../../config/constants";
-import { Copy } from "lucide-react";
+interface BlockManagerProps {
+  isOpen: boolean;
+  onClose: () => void;
+  blocks: ReserveBlock[];
+  onAdd: (block: Omit<ReserveBlock, "id">) => void;
+  onEdit: (id: string, block: Partial<ReserveBlock>) => void;
+  onDelete: (id: string) => void;
+  onSelect: (id: string) => void;
+  activeId: string | null;
+  config: Config;
+}
 
 const BlockManager: React.FC<BlockManagerProps> = ({
   isOpen,
@@ -25,10 +37,12 @@ const BlockManager: React.FC<BlockManagerProps> = ({
   onDelete,
   onSelect,
   activeId,
+  config,
 }) => {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
   const [homeBase, setHomeBase] = useState(DEFAULT_CONFIG.homeBase);
+  const [timezone, setTimezone] = useState(DEFAULT_CONFIG.homeTz);
   const [isEditing, setIsEditing] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
@@ -51,20 +65,25 @@ const BlockManager: React.FC<BlockManagerProps> = ({
 
     const fullStart = `${start}T10:00:00`;
     const fullEnd = `${end}T06:00:00`;
-    if (isEditing && editId) onEdit(editId, { start: fullStart, end: fullEnd, homeBase });
-    else onAdd({ start: fullStart, end: fullEnd, homeBase });
+    if (isEditing && editId) {
+      onEdit(editId, { start: fullStart, end: fullEnd, homeBase, timezone });
+    } else {
+      onAdd({ start: fullStart, end: fullEnd, homeBase, timezone });
+    }
     setShowForm(false);
     setIsEditing(false);
     setStart("");
     setEnd("");
     setError(null);
-    setHomeBase(DEFAULT_CONFIG.homeBase);
+    setHomeBase(config.homeBase);
+    setTimezone(config.homeTz);
   };
 
   const handleClone = (block: ReserveBlock) => {
     setStart(block.start.split("T")[0] || "");
     setEnd(block.end.split("T")[0] || "");
-    setHomeBase(block.homeBase || DEFAULT_CONFIG.homeBase);
+    setHomeBase(block.homeBase || config.homeBase);
+    setTimezone(block.timezone || config.homeTz);
     setIsEditing(false);
     setError(null);
     setShowForm(true);
@@ -82,7 +101,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({
                 {error}
               </div>
             )}
-            <div className="grid grid-cols-3 gap-2 mb-2">
+            <div className="grid grid-cols-2 gap-2 mb-2">
               <div className="col-span-1">
                 <label className="text-xs font-bold text-gray-500">First Day</label>
                 <input
@@ -110,6 +129,23 @@ const BlockManager: React.FC<BlockManagerProps> = ({
                   onChange={(e) => setHomeBase(e.target.value.toUpperCase())}
                 />
               </div>
+              <div className="col-span-1">
+                <label className="text-xs font-bold text-gray-500">Timezone</label>
+                <div className="relative">
+                  <Clock className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400" size={12} />
+                  <select
+                    value={timezone}
+                    onChange={(e) => setTimezone(e.target.value)}
+                    className="w-full pl-6 border p-1 rounded appearance-none bg-white text-xs h-[30px]"
+                  >
+                    {TIMEZONES.map((tz) => (
+                      <option key={tz.value} value={tz.value}>
+                        {tz.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
             </div>
             <div className="flex gap-2">
               <button onClick={handleSave} className="flex-1 bg-green-600 text-white py-1 rounded font-bold text-sm">
@@ -130,7 +166,8 @@ const BlockManager: React.FC<BlockManagerProps> = ({
               setIsEditing(false);
               setStart("");
               setEnd("");
-              setHomeBase(DEFAULT_CONFIG.homeBase);
+              setHomeBase(config.homeBase);
+              setTimezone(config.homeTz);
               setError(null);
             }}
             className="w-full bg-indigo-50 text-indigo-600 py-2 rounded mb-4 font-bold text-sm border border-indigo-100 hover:bg-indigo-100 flex items-center justify-center gap-2"
@@ -142,7 +179,9 @@ const BlockManager: React.FC<BlockManagerProps> = ({
           {blocks.map((b) => (
             <div
               key={b.id}
-              className={`p-3 rounded border flex justify-between items-center ${activeId === b.id ? "border-indigo-500 bg-indigo-50" : "border-gray-200"}`}
+              className={`p-3 rounded border flex justify-between items-center ${
+                activeId === b.id ? "border-indigo-500 bg-indigo-50" : "border-gray-200"
+              }`}
             >
               <div onClick={() => onSelect(b.id)} className="cursor-pointer flex-1 group">
                 <div className="font-bold text-sm flex items-center gap-2">
@@ -151,11 +190,18 @@ const BlockManager: React.FC<BlockManagerProps> = ({
                 </div>
                 <div className="text-xs text-gray-500 flex gap-2">
                   <span>
-                    {new Date(b.start).toLocaleDateString(undefined, { month: "short", day: "numeric" })} -{" "}
-                    {new Date(b.end).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                    {new Date(b.start).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    })}{" "}
+                    -{" "}
+                    {new Date(b.end).toLocaleDateString(undefined, {
+                      month: "short",
+                      day: "numeric",
+                    })}
                   </span>
                   <span className="font-mono font-bold bg-gray-200 px-1 rounded text-[10px] items-center flex">
-                    {b.homeBase || DEFAULT_CONFIG.homeBase}
+                    {b.homeBase || config.homeBase}
                   </span>
                 </div>
               </div>
@@ -172,7 +218,8 @@ const BlockManager: React.FC<BlockManagerProps> = ({
                   onClick={() => {
                     setStart(b.start.split("T")[0] || "");
                     setEnd(b.end.split("T")[0] || "");
-                    setHomeBase(b.homeBase || DEFAULT_CONFIG.homeBase);
+                    setHomeBase(b.homeBase || config.homeBase);
+                    setTimezone(b.timezone || config.homeTz);
                     setEditId(b.id);
                     setIsEditing(true);
                     setError(null);

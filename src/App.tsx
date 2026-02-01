@@ -203,7 +203,7 @@ export default function App() {
     const sDate = activeBlock.start.split("T")[0] || "";
     const eDate = activeBlock.end.split("T")[0] || "";
     if (sDate && eDate) {
-      timelineRows = generateTimeline(sDate, eDate, config);
+      timelineRows = generateTimeline(sDate, eDate, config, activeBlock.timezone);
 
       timelineRows.forEach((row) => {
         const storedRow = activeData[airport]?.find((r: RowData) => r.key === row.key);
@@ -295,6 +295,7 @@ export default function App() {
         onAdd={handleBlockAdd}
         onEdit={handleBlockEdit}
         onDelete={handleBlockDelete}
+        config={config}
       />
 
       <ConfirmModal

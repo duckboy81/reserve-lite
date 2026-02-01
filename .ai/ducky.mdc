@@ -5,3 +5,16 @@ globs: **/*.tsx, **/*.ts, src/**/*.ts, src/**/*.tsx
 
 - Use `React.SyntheticEvent<HTMLFormElement>` in place of `React.FormEvent<HTMLFormElement>` and similar uses.
 - Never use window.alert, window.confirm, or window.prompt. Use the modal components instead.
+- Prefer
+    ```
+    if (isEditing && editId) {
+      onEdit(editId, { start: fullStart, end: fullEnd, homeBase, timezone });
+    } else {
+      onAdd({ start: fullStart, end: fullEnd, homeBase, timezone });
+    }
+    ```
+    over
+    ```
+    if (isEditing && editId)onEdit(editId, { start: fullStart, end: fullEnd, homeBase, timezone });
+    else onAdd({ start: fullStart, end: fullEnd, homeBase, timezone });
+    ```

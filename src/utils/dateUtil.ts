@@ -16,8 +16,10 @@ export const moveItem = <T>(arr: T[], from: number, to: number): T[] => {
   return newArr;
 };
 
-export const generateTimeline = (startStr: string, endStr: string, config: Config): TimelineRowData[] => {
+export const generateTimeline = (startStr: string, endStr: string, config: Config, overrideHomeTz?: string): TimelineRowData[] => {
   const rows: TimelineRowData[] = [];
+  const homeTz = overrideHomeTz || config.homeTz;
+
   const getTimeInTz = (date: Date, tz: string) => {
     const formatter = new Intl.DateTimeFormat("en-US", {
       timeZone: tz,
@@ -76,9 +78,9 @@ export const generateTimeline = (startStr: string, endStr: string, config: Confi
       break;
     }
 
-    const callHomeTz = getTimeInTz(callTime, config.homeTz);
+    const callHomeTz = getTimeInTz(callTime, homeTz);
     const callDateDisplay = new Intl.DateTimeFormat("en-US", {
-      timeZone: config.homeTz,
+      timeZone: homeTz,
       month: "short",
       day: "numeric",
     }).format(callTime);
@@ -104,7 +106,7 @@ export const generateTimeline = (startStr: string, endStr: string, config: Confi
       const specialCall = new Date(callTime.getTime() + 59 * 60 * 1000);
       const specialReport = new Date(iterator.getTime() + 59 * 60 * 1000);
       const sPtTz = getTimeInTz(specialReport, config.reserveTz);
-      const sEtTz = getTimeInTz(specialCall, config.homeTz);
+      const sEtTz = getTimeInTz(specialCall, homeTz);
       const sEtStr = `${String(sEtTz.hour).padStart(2, "0")}:${String(sEtTz.minute).padStart(2, "0")}`;
       const sPtStr = `${String(sPtTz.hour).padStart(2, "0")}:${String(sPtTz.minute).padStart(2, "0")}`;
       const sDateStr = `${sEtTz.year}-${String(sEtTz.month).padStart(2, "0")}-${String(sEtTz.day).padStart(2, "0")}`;

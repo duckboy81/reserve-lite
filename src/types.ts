@@ -104,6 +104,7 @@ export interface ReserveBlock {
   isDeleted?: boolean;
   deletedAt?: number;
   isArchived?: boolean;
+  timezone?: string;
 }
 
 export interface Config {
