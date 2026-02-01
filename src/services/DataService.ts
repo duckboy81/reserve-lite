@@ -1,5 +1,6 @@
 import { db, FlightCacheItem, ScheduleRow } from "../db/ReserveDatabase";
 import { ReserveBlock, ScheduleData, RowData } from "../types";
+import { compareBlocks } from "../utils/dateUtil";
 
 const TRASH_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const ARCHIVE_RETENTION_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
@@ -87,7 +88,7 @@ export const DataService = {
   // Block Methods
   getBlocks: (): Promise<ReserveBlock[]> =>
     db.blocks.toArray().then(blocks =>
-      blocks.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+      blocks.sort(compareBlocks)
     ),
   addBlock: (block: ReserveBlock) => db.blocks.put(block),
   updateBlock: (block: ReserveBlock) => db.blocks.put(block),

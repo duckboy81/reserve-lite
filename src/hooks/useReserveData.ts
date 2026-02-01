@@ -3,6 +3,7 @@ import { ReserveBlock, FlightStatus, FlightSegment, ScheduleData, RowData } from
 import { DataService } from "../services/DataService";
 import { FlightService } from "../services/FlightService";
 import { AuthService } from "../services/AuthService";
+import { compareBlocks } from "../utils/dateUtil";
 
 export function useReserveData() {
     const [reserveBlocks, setReserveBlocks] = useState<ReserveBlock[]>([]);
@@ -12,7 +13,7 @@ export function useReserveData() {
 
     const handleBlockAdd = (b: Omit<ReserveBlock, "id">) => {
         const newB: ReserveBlock = { ...b, id: Date.now().toString() };
-        const next = [...reserveBlocks, newB].sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+        const next = [...reserveBlocks, newB].sort(compareBlocks);
         setReserveBlocks(next);
         DataService.addBlock(newB);
         setActiveBlockId(newB.id);
@@ -21,7 +22,7 @@ export function useReserveData() {
     const handleBlockEdit = (id: string, b: Partial<ReserveBlock>) => {
         const next = reserveBlocks
             .map((blk) => (blk.id === id ? { ...blk, ...b } : blk))
-            .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+            .sort(compareBlocks);
         setReserveBlocks(next);
         const updated = next.find((blk) => blk.id === id);
         if (updated) DataService.updateBlock(updated);
@@ -30,7 +31,7 @@ export function useReserveData() {
     const handleBlockDelete = (id: string) => {
         const next = reserveBlocks
             .map((b) => (b.id === id ? { ...b, isDeleted: true, deletedAt: Date.now() } : b))
-            .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+            .sort(compareBlocks);
         setReserveBlocks(next);
         const activeBlock = next.reverse().find((b) => !b.isDeleted && !b.isArchived && b.id <= id) || next[0];
         if (activeBlock) setActiveBlockId(activeBlock.id);
@@ -40,7 +41,7 @@ export function useReserveData() {
     const handleBlockRestore = (id: string) => {
         const next = reserveBlocks
             .map((b) => (b.id === id ? { ...b, isDeleted: false, deletedAt: undefined as any } : b))
-            .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+            .sort(compareBlocks);
         setReserveBlocks(next);
         DataService.restoreBlock(id);
     };

@@ -5,6 +5,7 @@ import { DEFAULT_CONFIG, TIMEZONES } from "../../config/constants";
 import { Config } from "../../types";
 import { Copy, Clock } from "lucide-react";
 import { DateRangePicker } from "../inputs/DateRangePicker";
+import { compareBlocks } from "../../utils/dateUtil";
 
 interface BlockManagerProps {
   isOpen: boolean;
@@ -57,7 +58,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({
         if (tab === "trash") return b.isDeleted;
         return false;
       })
-      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
+      .sort(compareBlocks);
   }, [blocks, tab]);
 
   const handleSave = () => {
