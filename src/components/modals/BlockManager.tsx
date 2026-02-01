@@ -4,6 +4,7 @@ import { ReserveBlock } from "../../types";
 import { DEFAULT_CONFIG, TIMEZONES } from "../../config/constants";
 import { Config } from "../../types";
 import { Copy, Clock } from "lucide-react";
+import { DateRangePicker } from "../inputs/DateRangePicker";
 
 interface BlockManagerProps {
   isOpen: boolean;
@@ -46,6 +47,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
 
   const [error, setError] = useState<string | null>(null);
 
@@ -102,26 +104,19 @@ const BlockManager: React.FC<BlockManagerProps> = ({
               </div>
             )}
             <div className="grid grid-cols-2 gap-2 mb-2">
-              <div className="col-span-1">
-                <label className="text-xs font-bold text-gray-500">First Day</label>
-                <input
-                  type="date"
-                  className="w-full border p-1 rounded"
-                  value={start}
-                  onChange={(e) => setStart(e.target.value)}
+              <div className="col-span-2">
+                <label className="text-xs font-bold text-gray-500 block mb-1">Dates</label>
+                <DateRangePicker
+                  startDate={start}
+                  endDate={end}
+                  onChange={(newStart, newEnd) => {
+                    setStart(newStart);
+                    setEnd(newEnd);
+                  }}
                 />
               </div>
               <div className="col-span-1">
-                <label className="text-xs font-bold text-gray-500">Last Day</label>
-                <input
-                  type="date"
-                  className="w-full border p-1 rounded"
-                  value={end}
-                  onChange={(e) => setEnd(e.target.value)}
-                />
-              </div>
-              <div className="col-span-1">
-                <label className="text-xs font-bold text-gray-500">Base</label>
+                <label className="text-xs font-bold text-gray-500">Origin Base</label>
                 <input
                   className="w-full border p-1 rounded uppercase"
                   maxLength={3}
@@ -179,15 +174,10 @@ const BlockManager: React.FC<BlockManagerProps> = ({
           {blocks.map((b) => (
             <div
               key={b.id}
-              className={`p-3 rounded border flex justify-between items-center ${
-                activeId === b.id ? "border-indigo-500 bg-indigo-50" : "border-gray-200"
-              }`}
+              className={`p-3 rounded border flex justify-between items-center ${activeId === b.id ? "border-indigo-500 bg-indigo-50" : "border-gray-200"
+                }`}
             >
               <div onClick={() => onSelect(b.id)} className="cursor-pointer flex-1 group">
-                <div className="font-bold text-sm flex items-center gap-2">
-                  Reserve Block
-                  {activeId === b.id && <CheckCircle size={14} className="text-indigo-600" />}
-                </div>
                 <div className="text-xs text-gray-500 flex gap-2">
                   <span>
                     {new Date(b.start).toLocaleDateString(undefined, {
@@ -200,9 +190,13 @@ const BlockManager: React.FC<BlockManagerProps> = ({
                       day: "numeric",
                     })}
                   </span>
+                  <span className="font-mono font-bold bg-gray-200 px-1 rounded text-[10px] items-center flex text-gray-600">
+                    {Math.round((new Date(b.end).getTime() - new Date(b.start).getTime()) / (1000 * 60 * 60 * 24)) + 1}d
+                  </span>
                   <span className="font-mono font-bold bg-gray-200 px-1 rounded text-[10px] items-center flex">
                     {b.homeBase || config.homeBase}
                   </span>
+                  {activeId === b.id && <CheckCircle size={14} className="text-indigo-600" />}
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -229,8 +223,20 @@ const BlockManager: React.FC<BlockManagerProps> = ({
                 >
                   <Pencil size={14} />
                 </button>
-                <button onClick={() => onDelete(b.id)} className="text-red-300 hover:text-red-500 p-1">
-                  <Trash2 size={14} />
+                <button
+                  onClick={() => {
+                    if (deleteConfirm === b.id) {
+                      onDelete(b.id);
+                      setDeleteConfirm(null);
+                    } else {
+                      setDeleteConfirm(b.id);
+                      // Auto-clear confirmation after 3 seconds
+                      setTimeout(() => setDeleteConfirm(null), 3000);
+                    }
+                  }}
+                  className={`p-1 rounded transition-colors ${deleteConfirm === b.id ? "bg-red-500 text-white px-2 text-xs font-bold" : "text-red-300 hover:text-red-500"}`}
+                >
+                  {deleteConfirm === b.id ? "Sure?" : <Trash2 size={14} />}
                 </button>
               </div>
             </div>
