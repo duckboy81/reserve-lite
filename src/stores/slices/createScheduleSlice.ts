@@ -1,4 +1,5 @@
 import { StateCreator } from "zustand";
+import { produce, castDraft } from "immer";
 import { ScheduleData, Option, RowData } from "../../types";
 
 export interface ScheduleSlice {
@@ -34,12 +35,14 @@ export const createScheduleSlice: StateCreator<ScheduleSlice> = (set, get) => ({
     future: [],
 
     enterEditMode: (currentData) => {
-        set({
-            stagingData: JSON.parse(JSON.stringify(currentData)),
-            history: [],
-            future: [],
-            isEditMode: true,
-        });
+        set(
+            produce((state: ScheduleSlice) => {
+                state.stagingData = castDraft(currentData);
+                state.history = [];
+                state.future = [];
+                state.isEditMode = true;
+            })
+        );
     },
 
     executeCommit: () => {
@@ -104,34 +107,28 @@ export const createScheduleSlice: StateCreator<ScheduleSlice> = (set, get) => ({
     modifyOptions: (airport, rowId, action) => {
         const { stagingData, updateStaging } = get();
 
-        // Safety check: Should technically be in edit mode before calling this, 
-        // but the original hook auto-entered. 
-        // In this strict architecture, we might want to enforce "enterEditMode" first,
-        // but for compatibility we'll throw if no staging data, or implicitly assume logic handles it.
-        // However, since we need "currentData" to enter edit mode, and that comes from props/query,
-        // we can't easily auto-enter here without the "source of truth".
-        // SO: We assume stagingData exists. If not, this action usually shouldn't be called.
-
         if (!stagingData) {
             console.warn("Attempted to modify options without staging data");
             return;
         }
 
-        const newData = JSON.parse(JSON.stringify(stagingData));
-        if (!newData[airport]) newData[airport] = [];
+        const newData = produce(stagingData, (draft) => {
+            if (!draft[airport]) draft[airport] = [];
 
-        let row = newData[airport].find((r: RowData) => r.key === rowId);
+            let row = draft[airport].find((r: RowData) => r.key === rowId);
 
-        // Create row if not exists
-        if (!row) {
-            const date = rowId.split("T")[0] || "";
-            const callET = rowId.split("T")[1] || "";
-            row = { key: rowId, date, callET, options: [] };
-            newData[airport].push(row);
-        }
+            // Create row if not exists
+            if (!row) {
+                const date = rowId.split("T")[0] || "";
+                const callET = rowId.split("T")[1] || "";
+                row = { key: rowId, date, callET, options: [] };
+                draft[airport].push(row);
+            }
 
-        action(row.options);
-        updateStaging(newData); // Uses the internal updateStaging which handles history
+            action(row.options);
+        });
+
+        updateStaging(newData);
     },
 
     saveOptionToStaging: (airport, rowId, index, option, dateContext) => {
@@ -142,17 +139,26 @@ export const createScheduleSlice: StateCreator<ScheduleSlice> = (set, get) => ({
             return;
         }
 
-        const newData = JSON.parse(JSON.stringify(stagingData));
-        if (!newData[airport]) newData[airport] = [];
+        const newData = produce(stagingData, (draft) => {
+            if (!draft[airport]) draft[airport] = [];
 
-        let row = newData[airport].find((r: RowData) => r.key === rowId);
-        if (!row) {
-            row = { key: rowId, date: dateContext || "", callET: rowId.split("T")[1] || "", options: [] };
-            newData[airport].push(row);
-        }
+            let row = draft[airport].find((r: RowData) => r.key === rowId);
+            if (!row) {
+                row = {
+                    key: rowId,
+                    date: dateContext || "",
+                    callET: rowId.split("T")[1] || "",
+                    options: []
+                };
+                draft[airport].push(row);
+            }
 
-        if (index !== null) row.options[index] = option;
-        else row.options.push(option);
+            if (index !== null) {
+                row.options[index] = option;
+            } else {
+                row.options.push(option);
+            }
+        });
 
         updateStaging(newData);
     },

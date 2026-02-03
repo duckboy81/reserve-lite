@@ -344,6 +344,8 @@ export default function App() {
         dateContext={editContext ? editContext.dateContext : ""}
         config={config}
         isGuest={AuthService.isGuest()}
+        activeBlockBase={activeBlock?.homeBase}
+        currentAirport={airport}
       />
 
       <ConfigModal

@@ -14,6 +14,8 @@ interface EditOptionModalProps {
   dateContext: string;
   config: Config;
   isGuest?: boolean;
+  activeBlockBase?: string | undefined;
+  currentAirport?: string | undefined;
 }
 
 const EditOptionModal: React.FC<EditOptionModalProps> = ({
@@ -24,6 +26,8 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
   dateContext,
   config,
   isGuest = false,
+  activeBlockBase,
+  currentAirport,
 }) => {
   const [strategy, setStrategy] = useState<"direct" | "hub">("direct");
   const [hub, setHub] = useState("");
@@ -36,9 +40,10 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      setRecentHubs(RecentAirports.get());
+      let recents = RecentAirports.get().filter((h) => h !== activeBlockBase && h !== currentAirport);
+      setRecentHubs(recents);
     }
-  }, [isOpen]);
+  }, [isOpen, activeBlockBase, currentAirport]);
 
   useEffect(() => {
     if (isOpen && initialOption) {
