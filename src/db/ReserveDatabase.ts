@@ -19,7 +19,7 @@ export class ReserveDatabase extends Dexie {
   constructor() {
     super("ReserveLiteDB");
     this.version(1).stores({
-      blocks: "id, start, end, homeBase, isDeleted, deletedAt, isArchived",
+      blocks: "id, start, end, homeBase, deleted, isArchived",
       schedule: "[airport+key], date",
       flightCache: "flightNumber, timestamp",
     });

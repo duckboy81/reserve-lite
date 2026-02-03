@@ -22,7 +22,7 @@ import TimelineRow from "./components/timeline/TimelineRow";
 import EditOptionModal from "./components/modals/EditOptionModal";
 import ConfigModal from "./components/modals/ConfigModal";
 import BlockManager from "./components/modals/BlockManager";
-import ConfirmModal from "./components/modals/ConfirmModal"; // ConfirmType is inferred
+import ConfirmModal from "./components/modals/ConfirmModal";
 import Header from "./components/layout/Header";
 import { ConfigScreen } from "./screens/ConfigScreen";
 import { useCrossTabSync } from "./hooks/useCrossTabSync";
@@ -105,16 +105,14 @@ export default function App() {
   useEffect(() => {
     initializeAuth();
     // Config persistence is handled by middlewares, but we might check if user changed
-    DataService.initialize().then(() => {
-      DataService.processLifecycle();
-    });
+    DataService.processLifecycle();
   }, [initializeAuth]);
 
   // 2. Active Block Initialization
   useEffect(() => {
     if (reserveBlocks.length > 0) {
       if (!activeBlockId || !reserveBlocks.some(b => b.id === activeBlockId)) {
-        const active = reserveBlocks.find((b) => !b.isDeleted && !b.isArchived) || reserveBlocks[0];
+        const active = reserveBlocks.find((b) => !b.deleted && !b.isArchived) || reserveBlocks[0];
         if (active) setActiveBlockId(active.id);
       }
     }
@@ -223,9 +221,15 @@ export default function App() {
 
   // Wrappers for BlockManager
   const handleBlockAdd = (b: any) => {
-    const newId = Date.now().toString();
+    const newId = crypto.randomUUID();
     addBlock.mutateAsync({ ...b, id: newId }).then(() => {
       useBoundStore.getState().setActiveBlockId(newId);
+    });
+  };
+
+  const handleBlockDelete = (id: string) => {
+    deleteBlock.mutateAsync({ id }).then(() => {
+      useBoundStore.getState().setActiveBlockId(null);
     });
   };
 
@@ -237,7 +241,7 @@ export default function App() {
         setAirport={setAirport}
         activeBlock={activeBlock}
         config={config}
-        setModals={(m: any) => setModalOpen(m.config ? "config" : m.blocks ? "blocks" : "edit", true)} // Adapter for legacy prop shape if needed, or update Header
+        setModalOpen={setModalOpen}
         enterEditMode={() => enterEditMode(scheduleData)}
         handleGlobalRefresh={handleRefresh}
         loading={loading}
@@ -314,7 +318,7 @@ export default function App() {
           const blk = reserveBlocks.find(x => x.id === id);
           if (blk) updateBlock.mutate({ ...blk, ...b });
         }}
-        onDelete={async (id) => deleteBlock.mutate({ id })}
+        onDelete={handleBlockDelete}
         onRestore={async (id) => restoreBlock.mutate(id)}
         config={config}
       />

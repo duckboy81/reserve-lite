@@ -8,7 +8,7 @@ interface HeaderProps {
   setAirport: (code: string) => void;
   activeBlock: ReserveBlock | undefined;
   config: Config;
-  setModals: (modals: any) => void;
+  setModalOpen: (modal: "config" | "blocks" | "edit", isOpen: boolean) => void;
   enterEditMode: () => void;
   handleGlobalRefresh: () => void;
   loading: boolean;
@@ -28,7 +28,7 @@ export default function Header({
   setAirport,
   activeBlock,
   config,
-  setModals,
+  setModalOpen,
   enterEditMode,
   handleGlobalRefresh,
   loading,
@@ -43,21 +43,20 @@ export default function Header({
 }: HeaderProps) {
   return (
     <div
-      className={`sticky top-0 z-100 border-b shadow-sm transition-colors ${
-        isEditMode ? "bg-yellow-50 border-yellow-200" : "bg-white border-gray-200"
-      }`}
+      className={`sticky top-0 z-100 border-b shadow-sm transition-colors ${isEditMode ? "bg-yellow-50 border-yellow-200" : "bg-white border-gray-200"
+        }`}
     >
       {isEditMode && (
         <div className="bg-yellow-400 text-yellow-900 text-xs font-bold text-center py-0.5">
           EDITING MODE — Unsaved Changes
         </div>
       )}
-      {activeBlock?.isArchived && !activeBlock?.isDeleted && (
+      {activeBlock?.isArchived && !activeBlock?.deleted && (
         <div className="bg-amber-100 text-amber-800 text-center text-sm font-bold py-2 border-b border-amber-200">
           Viewing Archived Block (Read Only)
         </div>
       )}
-      {activeBlock?.isDeleted && (
+      {activeBlock?.deleted && (
         <div className="bg-red-100 text-red-800 text-center text-sm font-bold py-2 border-b border-red-200">
           Viewing Deleted Block (Read Only)
         </div>
@@ -78,9 +77,8 @@ export default function Header({
                 <button
                   key={code}
                   onClick={() => setAirport(code)}
-                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${
-                    airport === code ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
-                  }`}
+                  className={`px-3 py-1 rounded-md text-[10px] font-bold transition-all ${airport === code ? "bg-white text-indigo-600 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                    }`}
                 >
                   {code}
                 </button>
@@ -90,7 +88,7 @@ export default function Header({
 
           {activeBlock && (
             <button
-              onClick={() => setModals((prev: any) => ({ ...prev, blocks: true }))}
+              onClick={() => setModalOpen("blocks", true)}
               className="flex flex-col items-center hover:bg-gray-50 px-2 rounded transition-colors group justify-center-safe w-full"
             >
               <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide group-hover:text-indigo-500">
@@ -133,7 +131,7 @@ export default function Header({
                   )}
                 </div>
                 <button
-                  onClick={() => setModals((prev: any) => ({ ...prev, config: true }))}
+                  onClick={() => setModalOpen("config", true)}
                   className="p-2 text-gray-400 hover:text-gray-600"
                 >
                   <Settings size={16} />

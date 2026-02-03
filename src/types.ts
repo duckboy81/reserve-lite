@@ -103,8 +103,7 @@ export interface ReserveBlock {
   start: string;
   end: string;
   homeBase?: string;
-  isDeleted?: boolean;
-  deletedAt?: number;
+  deleted?: number;
   isArchived?: boolean;
   timezone?: string;
 }
@@ -114,8 +113,8 @@ export interface Config {
   reserveBase: string;
   homeTz: string;
   reserveTz: string;
-  commuteBufferHours?: number;
-  releaseBufferHours?: number;
+  // commuteBufferHours?: number;
+  // releaseBufferHours?: number;
 }
 
 export interface TimelineRowData {

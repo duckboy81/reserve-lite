@@ -1,4 +1,4 @@
-import { db, FlightCacheItem, ScheduleRow } from "../db/ReserveDatabase";
+import { db, ScheduleRow } from "../db/ReserveDatabase";
 import { ReserveBlock, ScheduleData, RowData } from "../types";
 import { compareBlocks } from "../utils/dateUtil";
 import { sendInvalidationSignal } from "../utils/querySync";
@@ -28,63 +28,7 @@ const inflateSchedule = (rows: ScheduleRow[]): ScheduleData => {
 };
 
 export const DataService = {
-  initialize: async (): Promise<void> => {
-    const legacyBlocks = localStorage.getItem("reserve_lite_blocks");
-    const legacySchedule = localStorage.getItem("reserve_lite_data_v2");
-    const legacyCache = localStorage.getItem("flight_status_cache");
 
-    if (legacyBlocks || legacySchedule || legacyCache) {
-      console.log("Migrating legacy data to IndexedDB...");
-      await db.transaction("rw", db.blocks, db.schedule, db.flightCache, async () => {
-        // Migrate Blocks
-        if (legacyBlocks) {
-          try {
-            const blocks: ReserveBlock[] = JSON.parse(legacyBlocks);
-            await db.blocks.bulkPut(blocks);
-          } catch (e) {
-            console.error("Failed to migrate blocks", e);
-          }
-        }
-
-        // Migrate Schedule
-        if (legacySchedule) {
-          try {
-            const schedule: ScheduleData = JSON.parse(legacySchedule);
-            const rows = flattenSchedule(schedule);
-            await db.schedule.bulkPut(rows);
-          } catch (e) {
-            console.error("Failed to migrate schedule", e);
-          }
-        }
-
-        // Migrate Flight Cache
-        if (legacyCache) {
-          try {
-            const cache = JSON.parse(legacyCache);
-            const items: FlightCacheItem[] = [];
-            Object.entries(cache).forEach(([key, val]: [string, any]) => {
-              if (val && val.data && val.timestamp) {
-                items.push({
-                  flightNumber: key,
-                  timestamp: val.timestamp,
-                  data: val.data,
-                });
-              }
-            });
-            await db.flightCache.bulkPut(items);
-          } catch (e) {
-            console.error("Failed to migrate cache", e);
-          }
-        }
-      });
-
-      // Clear legacy data
-      localStorage.removeItem("reserve_lite_blocks");
-      localStorage.removeItem("reserve_lite_data_v2");
-      localStorage.removeItem("flight_status_cache");
-      console.log("Migration complete.");
-    }
-  },
 
   // Block Methods
   getBlocks: (): Promise<ReserveBlock[]> =>
@@ -103,15 +47,14 @@ export const DataService = {
     if (permanent) {
       await db.blocks.delete(id);
     } else {
-      await db.blocks.update(id, { isDeleted: true, deletedAt: Date.now() });
+      await db.blocks.update(id, { deleted: Date.now() });
     }
     sendInvalidationSignal(['blocks']);
   },
   restoreBlock: async (id: string): Promise<void> => {
     const block = await db.blocks.get(id);
     if (block) {
-      block.isDeleted = false;
-      delete block.deletedAt;
+      delete block.deleted;
       await db.blocks.put(block);
       sendInvalidationSignal(['blocks']);
     }
@@ -144,10 +87,10 @@ export const DataService = {
     let didUpdate = false;
 
     // 1. Move expired active blocks to Archive
-    const activeBlocks = await db.blocks.filter((b) => !b.isDeleted && !b.isArchived).toArray();
+    const activeBlocks = await db.blocks.filter((b) => !b.deleted && !b.isArchived).toArray();
     const toArchive: string[] = [];
 
-    activeBlocks.forEach((b) => {
+    for (const b of activeBlocks) {
       const endDate = new Date(b.end);
       // Archive if now > endDate + 1 day
       const archiveCutoff = new Date(endDate);
@@ -156,7 +99,7 @@ export const DataService = {
       if (now > archiveCutoff.getTime()) {
         toArchive.push(b.id);
       }
-    });
+    }
 
     if (toArchive.length > 0) {
       await db.blocks.where("id").anyOf(toArchive).modify({ isArchived: true });
@@ -164,17 +107,18 @@ export const DataService = {
     }
 
     // 2. Trash Cleanup (Safe Retention: Last 10)
-    const trashBlocks = await db.blocks.filter((b) => !!b.isDeleted).toArray();
-    // Sort by deletedAt desc (newest deleted first)
-    trashBlocks.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
+    const trashBlocks = await db.blocks.filter((b) => !!b.deleted).toArray();
 
-    // Keep top 10, check the rest for expiration
+    // Sort by deleted desc (newest deleted first)
+    trashBlocks.sort((a, b) => (b.deleted || 0) - (a.deleted || 0));
+
+    // Keep the top 10, check the rest for expiration
     const trashToDelete: string[] = [];
     const trashCutoffDate = now - TRASH_RETENTION_MS;
 
     trashBlocks.forEach((b, index) => {
       if (index < 10) return; // Always keep the last 10 deleted blocks
-      if (b.deletedAt && b.deletedAt < trashCutoffDate) {
+      if (b.deleted && b.deleted < trashCutoffDate) {
         trashToDelete.push(b.id);
       }
     });
@@ -185,7 +129,8 @@ export const DataService = {
     }
 
     // 3. Archive Cleanup (Safe Retention: Last 10)
-    const archiveBlocks = await db.blocks.filter((b) => !!b.isArchived && !b.isDeleted).toArray();
+    const archiveBlocks = await db.blocks.filter((b) => !!b.isArchived && !b.deleted).toArray();
+
     // Sort by end date desc (newest archive first)
     archiveBlocks.sort((a, b) => new Date(b.end).getTime() - new Date(a.end).getTime());
 

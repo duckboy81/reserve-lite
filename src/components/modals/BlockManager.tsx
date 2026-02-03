@@ -53,9 +53,9 @@ const BlockManager: React.FC<BlockManagerProps> = ({
   const filteredBlocks = useMemo(() => {
     return blocks
       .filter((b) => {
-        if (tab === "active") return !b.isDeleted && !b.isArchived;
-        if (tab === "archive") return !b.isDeleted && b.isArchived;
-        if (tab === "trash") return b.isDeleted;
+        if (tab === "active") return !b.deleted && !b.isArchived;
+        if (tab === "archive") return !b.deleted && b.isArchived;
+        if (tab === "trash") return b.deleted;
         return false;
       })
       .sort(compareBlocks);
@@ -104,7 +104,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 min-h-120 flex flex-col">
         <h3 className="font-bold text-lg mb-4">Manage Reserve Blocks</h3>
         {showForm ? (
           <div className="bg-gray-50 p-3 rounded mb-4 border border-gray-200">
@@ -204,7 +204,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({
           </button>
         )}
 
-        <div className="max-h-60 overflow-y-auto space-y-2">
+        <div className="max-h-60 overflow-y-auto space-y-2 mb-4">
           {filteredBlocks.length === 0 && (
             <div className="text-center text-gray-400 text-xs py-4">No {tab} blocks found.</div>
           )}
@@ -293,7 +293,7 @@ const BlockManager: React.FC<BlockManagerProps> = ({
             </div>
           ))}
         </div>
-        <button onClick={onClose} className="mt-4 w-full border py-2 rounded text-gray-500 hover:bg-gray-50 font-bold">
+        <button onClick={onClose} className="w-full border py-2 rounded text-gray-500 hover:bg-gray-50 font-bold mt-auto">
           Done
         </button>
       </div>

@@ -31,8 +31,8 @@ export const DEFAULT_CONFIG = {
   homeTz: "America/New_York",
   reserveBase: "LAX",
   reserveTz: "America/Los_Angeles",
-  commuteBufferHours: 0,
-  releaseBufferHours: 0,
+  // commuteBufferHours: 0,
+  // releaseBufferHours: 0,
 };
 
 export const TIMEZONES = [

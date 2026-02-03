@@ -108,37 +108,37 @@ export const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialConfig, onSav
             </div>
 
             {/* Buffers Section */}
-            <div className="md:col-span-2 space-y-4 pt-4">
-              <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2 border-b pb-2">
-                <Clock size={14} /> Time Buffers (Hours)
-              </h3>
-              <div className="grid grid-cols-2 gap-8">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Commute Buffer</label>
-                  <input
-                    type="number"
-                    value={config.commuteBufferHours}
-                    onChange={(e) => setConfig({ ...config, commuteBufferHours: Number(e.target.value) })}
-                    className="w-full p-3 border border-gray-200 rounded-lg font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
-                    min={0}
-                    step={0.5}
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1">Extra time added before report.</p>
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1">Release Buffer</label>
-                  <input
-                    type="number"
-                    value={config.releaseBufferHours}
-                    onChange={(e) => setConfig({ ...config, releaseBufferHours: Number(e.target.value) })}
-                    className="w-full p-3 border border-gray-200 rounded-lg font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
-                    min={0}
-                    step={0.5}
-                  />
-                  <p className="text-[10px] text-gray-400 mt-1">Extra time added after release.</p>
-                </div>
-              </div>
-            </div>
+            {/*<div className="md:col-span-2 space-y-4 pt-4">*/}
+            {/*  <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2 border-b pb-2">*/}
+            {/*    <Clock size={14} /> Time Buffers (Hours)*/}
+            {/*  </h3>*/}
+            {/*  <div className="grid grid-cols-2 gap-8">*/}
+            {/*    <div>*/}
+            {/*      <label className="block text-xs font-bold text-gray-700 mb-1">Commute Buffer</label>*/}
+            {/*      <input*/}
+            {/*        type="number"*/}
+            {/*        value={config.commuteBufferHours}*/}
+            {/*        onChange={(e) => setConfig({ ...config, commuteBufferHours: Number(e.target.value) })}*/}
+            {/*        className="w-full p-3 border border-gray-200 rounded-lg font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-none"*/}
+            {/*        min={0}*/}
+            {/*        step={0.5}*/}
+            {/*      />*/}
+            {/*      <p className="text-[10px] text-gray-400 mt-1">Extra time added before report.</p>*/}
+            {/*    </div>*/}
+            {/*    <div>*/}
+            {/*      <label className="block text-xs font-bold text-gray-700 mb-1">Release Buffer</label>*/}
+            {/*      <input*/}
+            {/*        type="number"*/}
+            {/*        value={config.releaseBufferHours}*/}
+            {/*        onChange={(e) => setConfig({ ...config, releaseBufferHours: Number(e.target.value) })}*/}
+            {/*        className="w-full p-3 border border-gray-200 rounded-lg font-mono font-bold focus:ring-2 focus:ring-indigo-500 outline-none"*/}
+            {/*        min={0}*/}
+            {/*        step={0.5}*/}
+            {/*      />*/}
+            {/*      <p className="text-[10px] text-gray-400 mt-1">Extra time added after release.</p>*/}
+            {/*    </div>*/}
+            {/*  </div>*/}
+            {/*</div>*/}
           </div>
 
           <div className="mt-8 pt-6 border-t flex justify-end">
