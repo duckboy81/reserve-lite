@@ -103,8 +103,8 @@ const BlockManager: React.FC<BlockManagerProps> = ({
 
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 min-h-120 flex flex-col">
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6 min-h-120 flex flex-col" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-bold text-lg mb-4">Manage Reserve Blocks</h3>
         {showForm ? (
           <div className="bg-gray-50 p-3 rounded mb-4 border border-gray-200">
@@ -241,7 +241,10 @@ const BlockManager: React.FC<BlockManagerProps> = ({
                 {tab === "active" && (
                   <>
                     <button
-                      onClick={() => handleClone(b)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleClone(b);
+                      }}
                       className="text-gray-400 hover:text-blue-500 p-1"
                       title="Clone Block"
                     >
@@ -249,7 +252,8 @@ const BlockManager: React.FC<BlockManagerProps> = ({
                     </button>
                     <div className="w-px h-3 bg-gray-300 mx-1"></div>
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         setStart(b.start.split("T")[0] || "");
                         setEnd(b.end.split("T")[0] || "");
                         setHomeBase(b.homeBase || config.homeBase);
@@ -264,7 +268,8 @@ const BlockManager: React.FC<BlockManagerProps> = ({
                       <Pencil size={14} />
                     </button>
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation();
                         if (deleteConfirm === b.id) {
                           onDelete(b.id);
                           setDeleteConfirm(null);
@@ -281,7 +286,10 @@ const BlockManager: React.FC<BlockManagerProps> = ({
                 )}
                 {tab === "trash" && (
                   <button
-                    onClick={() => onRestore(b.id)}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRestore(b.id);
+                    }}
                     className="text-green-500 hover:text-green-700 p-1 flex items-center gap-1 text-xs font-bold"
                     title="Restore Block"
                   >

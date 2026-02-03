@@ -119,7 +119,7 @@ export default function Header({
                     onClick={() => {
                       if (user?.id !== "GUEST") handleGlobalRefresh();
                     }}
-                    className={`p-2 rounded-full hover:bg-gray-100 text-gray-500 ${loading ? "animate-spin" : ""} ${user?.id === "GUEST" ? "opacity-50 cursor-not-allowed" : ""}`}
+                    className={`p-2 rounded-full hover:bg-gray-100 text-gray-500 ${loading ? "animate-spin text-yellow-600" : ""} ${user?.id === "GUEST" ? "opacity-50 cursor-not-allowed" : ""}`}
                     title={user?.id === "GUEST" ? "" : "Refresh All Flights"}
                   >
                     <RefreshCw size={16} />

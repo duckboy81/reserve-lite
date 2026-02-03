@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useLayoutEffect } from "react";
 import { Calendar } from "lucide-react";
 import { useShallow } from "zustand/react/shallow";
 
@@ -28,6 +28,7 @@ import { ConfigScreen } from "./screens/ConfigScreen";
 import { useCrossTabSync } from "./hooks/useCrossTabSync";
 import { useQueryClient } from "@tanstack/react-query";
 import { useBlockMutations } from "./hooks/queries/useBlockMutations";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
 export default function App() {
   // --- ZUSTAND SELECTORS (Atomic & Shallow) ---
@@ -83,7 +84,7 @@ export default function App() {
 
   // --- TANSTACK QUERY ---
   const queryClient = useQueryClient(); // Expose client for manual invalidation
-  const { data: reserveBlocks = [] } = useBlocksQuery();
+  const { data: reserveBlocks = [], isFetching: isReserveBlockFetching } = useBlocksQuery();
   const { data: scheduleData = {}, isFetching: isScheduleFetching } = useScheduleQuery();
   const { addBlock, updateBlock, deleteBlock, restoreBlock } = useBlockMutations();
 
@@ -94,7 +95,7 @@ export default function App() {
   const { saveMutation } = useScheduleMutations();
 
   const isOnline = useNetworkStatus();
-  const loading = isScheduleFetching || isFlightFetching || saveMutation.isPending || addBlock.isPending || updateBlock.isPending || deleteBlock.isPending || restoreBlock.isPending;
+  const loading = isReserveBlockFetching || isScheduleFetching || isFlightFetching || saveMutation.isPending || addBlock.isPending || updateBlock.isPending || deleteBlock.isPending || restoreBlock.isPending;
 
   // --- CROSS-TAB SYNC ---
   useCrossTabSync();
@@ -233,6 +234,27 @@ export default function App() {
     });
   };
 
+  // Virtualization
+  const parentRef = useRef<HTMLDivElement>(null);
+  const [parentOffset, setParentOffset] = useState(0);
+
+  useLayoutEffect(() => {
+    if (parentRef.current) {
+      const offset = parentRef.current.offsetTop;
+      setParentOffset((prev) => (prev !== offset ? offset : prev));
+    }
+  }, [isEditMode, activeBlock?.deleted, activeBlock?.isArchived]);
+
+  const rowVirtualizer = useWindowVirtualizer({
+    count: timelineRows.length,
+    estimateSize: () => 180, // Better average for rows with flights
+    scrollMargin: parentOffset,
+    getItemKey: (index) => timelineRows[index]?.key || index,
+    overscan: 25, // Increased overscan for smoother scrolling
+  });
+
+  const virtualItems = rowVirtualizer.getVirtualItems();
+
   return (
     <div className={`min-h-screen font-sans text-gray-900 pb-20 ${isEditMode ? "bg-gray-100" : "bg-white"}`}>
       <Header
@@ -255,23 +277,50 @@ export default function App() {
         onSave={handleCommit}
       />
 
-      <main className="max-w-6xl mx-auto min-h-125 border-x border-gray-100 shadow-sm bg-white">
+      <main
+        ref={parentRef}
+        className="max-w-6xl mx-auto min-h-125 border-x border-gray-100 shadow-sm bg-white"
+      >
         {timelineRows.length > 0 ? (
-          timelineRows.map((row) => (
-            <TimelineRow
-              key={row.key}
-              row={row}
-              isEdit={isEditMode}
-              onAddOption={handleAddOption}
-              onDeleteOption={deleteOption}
-              onEditOption={handleEditOption}
-              onReorderOptions={reorderOptions}
-              flightStatuses={flightStatuses}
-              onCopyPlan={(opt) => setClipboardPlan(JSON.parse(JSON.stringify(opt)))}
-              onPastePlan={(rowId) => handlePastePlan(rowId, row.options)}
-              hasClipboard={!!clipboardPlan}
-            />
-          ))
+          <div
+            style={{
+              height: `${rowVirtualizer.getTotalSize()}px`,
+              width: "100%",
+              position: "relative",
+            }}
+          >
+            {virtualItems.map((virtualRow) => {
+              const row = timelineRows[virtualRow.index];
+              if (!row) return null;
+              return (
+                <div
+                  key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={rowVirtualizer.measureElement}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    transform: `translateY(${virtualRow.start - parentOffset}px)`,
+                  }}
+                >
+                  <TimelineRow
+                    row={row}
+                    isEdit={isEditMode}
+                    onAddOption={handleAddOption}
+                    onDeleteOption={deleteOption}
+                    onEditOption={handleEditOption}
+                    onReorderOptions={reorderOptions}
+                    flightStatuses={flightStatuses}
+                    onCopyPlan={(opt) => setClipboardPlan(JSON.parse(JSON.stringify(opt)))}
+                    onPastePlan={(rowId) => handlePastePlan(rowId, row.options)}
+                    hasClipboard={!!clipboardPlan}
+                  />
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center py-20 text-gray-400">
             <Calendar size={48} className="mb-4 text-gray-200" />

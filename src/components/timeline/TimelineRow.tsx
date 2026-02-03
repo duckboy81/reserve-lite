@@ -119,4 +119,5 @@ const TimelineRow: React.FC<TimelineRowProps> = ({
   );
 };
 
-export default TimelineRow;
+// Memoize the row since it is used in a virtual list
+export default React.memo(TimelineRow);
