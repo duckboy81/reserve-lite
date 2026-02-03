@@ -25,6 +25,9 @@ import BlockManager from "./components/modals/BlockManager";
 import ConfirmModal from "./components/modals/ConfirmModal"; // ConfirmType is inferred
 import Header from "./components/layout/Header";
 import { ConfigScreen } from "./screens/ConfigScreen";
+import { useCrossTabSync } from "./hooks/useCrossTabSync";
+import { useQueryClient } from "@tanstack/react-query";
+import { useBlockMutations } from "./hooks/queries/useBlockMutations";
 
 export default function App() {
   // --- ZUSTAND SELECTORS (Atomic & Shallow) ---
@@ -79,8 +82,10 @@ export default function App() {
   })));
 
   // --- TANSTACK QUERY ---
+  const queryClient = useQueryClient(); // Expose client for manual invalidation
   const { data: reserveBlocks = [] } = useBlocksQuery();
   const { data: scheduleData = {}, isFetching: isScheduleFetching } = useScheduleQuery();
+  const { addBlock, updateBlock, deleteBlock, restoreBlock } = useBlockMutations();
 
   // Decide which data is "Active" (Server vs Staging)
   const activeData = isEditMode && stagingData ? stagingData : scheduleData;
@@ -89,7 +94,10 @@ export default function App() {
   const { saveMutation } = useScheduleMutations();
 
   const isOnline = useNetworkStatus();
-  const loading = isScheduleFetching || isFlightFetching || saveMutation.isPending;
+  const loading = isScheduleFetching || isFlightFetching || saveMutation.isPending || addBlock.isPending || updateBlock.isPending || deleteBlock.isPending || restoreBlock.isPending;
+
+  // --- CROSS-TAB SYNC ---
+  useCrossTabSync();
 
   // --- EFFECTS ---
 
@@ -129,21 +137,9 @@ export default function App() {
   };
 
   const handleRefresh = () => {
-    // With TanStack Query, invalidation triggers refresh.
-    // FlightStatusQuery depends on ScheduleQuery data.
-    // We can invalidate the schedule to trigger a full refresh chain if needed,
-    // OR specifically invalidate flight statuses.
-    // For now, let's invalidate both to be safe.
-    useBoundStore.getState().initializeAuth(); // Re-check token?
-    // Actually invalidation is done via Client. 
-    // But `handleGlobalRefresh` in Header usually implies flight status refresh.
-    // `useFlightStatusQuery` auto-refreshes if data changes or cache expires.
-    // To force separate refresh, we might need access to queryClient here or just let the staleTime handle it.
-    // Ideally pass a callback that calls `queryClient.invalidateQueries`.
-    // For this refactor, we'll assume the query hooks handle it, or we add validaton logic.
-    // Let's pass a no-op or a specific invalidator if we had the client exposed.
-    // Since we don't have queryClient here easily without hook:
-    // We can rely on `useFlightStatusQuery` reacting to `activeData`.
+    // Force a refetch of all data
+    queryClient.invalidateQueries();
+    useBoundStore.getState().initializeAuth();
   };
 
   // Clipboard State (Local is fine for clipboard)
@@ -226,19 +222,12 @@ export default function App() {
   }
 
   // Wrappers for BlockManager
-  const handleBlockAdd = (b: any) => DataService.addBlock({ ...b, id: Date.now().toString() }).then(() => useBoundStore.getState().setActiveBlockId(Date.now().toString())); // Optimistic? Query will refresh.
-  // Actually, for blocks we should probably use mutations too, but for now we can call DataService directly and invalidate. 
-  // Let's stick to the separation. Since `useBlocksQuery` is active, any change to DB needs invalidation.
-  // We didn't create mutations for blocks yet.
-  // CRITICAL: New blocks won't show up unless we invalidate "blocks".
-  // I should probably use `useQueryClient` to invalidate after these operations.
-  // Since I didn't create a `useBlocksMutations` hook, I'll access the client inside the component?
-  // No, I can't easily.
-  // QUICK FIX: Since I'm inside usage, I can't `useQueryClient` unless I moved this code to a child.
-  // BUT `App.tsx` IS the child of `QueryClientProvider` in `main.tsx`. So I CAN use `useQueryClient`.
-
-  // Refined Block Handlers
-  // This requires `useQueryClient`. I'll add the import.
+  const handleBlockAdd = (b: any) => {
+    const newId = Date.now().toString();
+    addBlock.mutateAsync({ ...b, id: newId }).then(() => {
+      useBoundStore.getState().setActiveBlockId(newId);
+    });
+  };
 
   return (
     <div className={`min-h-screen font-sans text-gray-900 pb-20 ${isEditMode ? "bg-gray-100" : "bg-white"}`}>
@@ -323,10 +312,10 @@ export default function App() {
         onAdd={handleBlockAdd}
         onEdit={async (id, b) => {
           const blk = reserveBlocks.find(x => x.id === id);
-          if (blk) await DataService.updateBlock({ ...blk, ...b });
+          if (blk) updateBlock.mutate({ ...blk, ...b });
         }}
-        onDelete={async (id) => DataService.deleteBlock(id)}
-        onRestore={async (id) => DataService.restoreBlock(id)}
+        onDelete={async (id) => deleteBlock.mutate({ id })}
+        onRestore={async (id) => restoreBlock.mutate(id)}
         config={config}
       />
 

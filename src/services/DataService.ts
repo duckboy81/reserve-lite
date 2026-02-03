@@ -1,6 +1,7 @@
 import { db, FlightCacheItem, ScheduleRow } from "../db/ReserveDatabase";
 import { ReserveBlock, ScheduleData, RowData } from "../types";
 import { compareBlocks } from "../utils/dateUtil";
+import { sendInvalidationSignal } from "../utils/querySync";
 
 const TRASH_RETENTION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const ARCHIVE_RETENTION_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
@@ -90,14 +91,21 @@ export const DataService = {
     db.blocks.toArray().then(blocks =>
       blocks.sort(compareBlocks)
     ),
-  addBlock: (block: ReserveBlock) => db.blocks.put(block),
-  updateBlock: (block: ReserveBlock) => db.blocks.put(block),
+  addBlock: async (block: ReserveBlock) => {
+    await db.blocks.put(block);
+    sendInvalidationSignal(['blocks']);
+  },
+  updateBlock: async (block: ReserveBlock) => {
+    await db.blocks.put(block);
+    sendInvalidationSignal(['blocks']);
+  },
   deleteBlock: async (id: string, permanent = false): Promise<void> => {
     if (permanent) {
       await db.blocks.delete(id);
     } else {
       await db.blocks.update(id, { isDeleted: true, deletedAt: Date.now() });
     }
+    sendInvalidationSignal(['blocks']);
   },
   restoreBlock: async (id: string): Promise<void> => {
     const block = await db.blocks.get(id);
@@ -105,6 +113,7 @@ export const DataService = {
       block.isDeleted = false;
       delete block.deletedAt;
       await db.blocks.put(block);
+      sendInvalidationSignal(['blocks']);
     }
   },
 
@@ -114,8 +123,9 @@ export const DataService = {
     return inflateSchedule(rows);
   },
 
-  saveScheduleRow: (airport: string, row: RowData) => {
-    return db.schedule.put({ ...row, airport });
+  saveScheduleRow: async (airport: string, row: RowData) => {
+    await db.schedule.put({ ...row, airport });
+    sendInvalidationSignal(['schedule']);
   },
 
   saveScheduleData: async (data: ScheduleData): Promise<void> => {
@@ -125,11 +135,13 @@ export const DataService = {
       const rows = flattenSchedule(data);
       await db.schedule.bulkPut(rows);
     });
+    sendInvalidationSignal(['schedule']);
   },
 
   // Lifecycle Methods
   processLifecycle: async (): Promise<void> => {
     const now = Date.now();
+    let didUpdate = false;
 
     // 1. Move expired active blocks to Archive
     const activeBlocks = await db.blocks.filter((b) => !b.isDeleted && !b.isArchived).toArray();
@@ -148,6 +160,7 @@ export const DataService = {
 
     if (toArchive.length > 0) {
       await db.blocks.where("id").anyOf(toArchive).modify({ isArchived: true });
+      didUpdate = true;
     }
 
     // 2. Trash Cleanup (Safe Retention: Last 10)
@@ -168,6 +181,7 @@ export const DataService = {
 
     if (trashToDelete.length > 0) {
       await db.blocks.bulkDelete(trashToDelete);
+      didUpdate = true;
     }
 
     // 3. Archive Cleanup (Safe Retention: Last 10)
@@ -188,6 +202,11 @@ export const DataService = {
 
     if (archiveToDelete.length > 0) {
       await db.blocks.bulkDelete(archiveToDelete);
+      didUpdate = true;
+    }
+
+    if (didUpdate) {
+      sendInvalidationSignal(['blocks']);
     }
   },
 
@@ -264,6 +283,8 @@ export const DataService = {
         await db.schedule.bulkPut(rows);
       }
     });
+    sendInvalidationSignal(['blocks']);
+    sendInvalidationSignal(['schedule']);
   },
 };
 

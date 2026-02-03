@@ -18,18 +18,18 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set) => ({
     },
     initializeAuth: () => {
         const token = AuthService.getToken();
-        if (token) {
-            const authStr = localStorage.getItem("alpa_auth");
-            if (authStr) {
-                try {
-                    const parsed = JSON.parse(authStr);
-                    if (parsed && parsed.userInfo) {
-                        set({ user: parsed.userInfo });
-                    }
-                } catch (e) {
-                    console.error("Failed to parse auth info", e);
-                }
+        if (!token) return;
+
+        const authStr = localStorage.getItem("alpa_auth");
+        if (!authStr) return;
+
+        try {
+            const parsed = JSON.parse(authStr);
+            if (parsed && parsed.userInfo) {
+                set({ user: parsed.userInfo });
             }
+        } catch (e) {
+            console.error("Failed to parse auth info", e);
         }
     },
 });
