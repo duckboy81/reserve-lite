@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Edit3, X } from "lucide-react";
+import { Edit3, X, History, ChevronDown, Check } from "lucide-react";
 import FlightInput from "../inputs/FlightInput";
 import HubStrategyInputs from "./HubStrategyInputs";
 import { RecentAirports } from "../../services/StorageService";
@@ -29,6 +29,9 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
   activeBlockBase,
   currentAirport,
 }) => {
+  const [isHubConfirmed, setIsHubConfirmed] = useState(false);
+  const [showRecentDropdown, setShowRecentDropdown] = useState(false);
+
   const [strategy, setStrategy] = useState<"direct" | "hub">("direct");
   const [hub, setHub] = useState("");
   // Direct Segments
@@ -50,6 +53,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
       if (initialOption.type === "hub-strategy") {
         setStrategy("hub");
         setHub(initialOption.hub || "");
+        setIsHubConfirmed(true);
         setInbounds(
           Array.isArray(initialOption.inbound)
             ? initialOption.inbound
@@ -65,6 +69,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
     } else if (isOpen) {
       setStrategy("direct");
       setHub("");
+      setIsHubConfirmed(false);
       setSegments([
         { flight: "", dep: "", arr: "", status: "", depAirport: config.homeBase, arrAirport: config.reserveBase },
       ]);
@@ -77,7 +82,15 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
 
   const handleHubChange = (val: string) => {
     setHub(val);
-    if (val.length === 3) RecentAirports.add(val.toUpperCase());
+  };
+
+  const confirmHub = (val?: string) => {
+    const hubToSet = val || hub;
+    if (!hubToSet || hubToSet.length < 3) return;
+
+    setHub(hubToSet);
+    RecentAirports.add(hubToSet.toUpperCase());
+    setIsHubConfirmed(true);
   };
 
   const handleSave = () => {
@@ -95,6 +108,11 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
     } else {
       const cleanInbounds = inbounds.filter((i) => i.flight);
       const cleanOutbounds = outbounds.filter((o) => o.flight);
+
+      // Relaxed validation: Just need hub really, but ideally some legs
+      // If user just saves hub without legs, it might be valid partial data?
+      // Existing logic required legs. Let's keep it but maybe ensure they can't save if empty?
+      // actually the prompt implies we minimize data entry, so maybe they fill it out.
 
       if (cleanInbounds.length === 0 && cleanOutbounds.length === 0) return;
 
@@ -125,108 +143,213 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
           </button>
         </div>
 
-        <div className="p-4 overflow-y-auto flex-1 bg-gray-50/50">
-          <div className="flex gap-4 mb-6">
-            <button
-              onClick={() => setStrategy("direct")}
-              className={`flex-1 py-3 font-bold rounded-lg border transition-all ${strategy === "direct" ? "bg-indigo-600 text-white border-indigo-600 shadow-md" : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"}`}
-            >
-              Direct / Simple
-            </button>
-            <button
-              onClick={() => setStrategy("hub")}
-              className={`flex-1 py-3 font-bold rounded-lg border transition-all ${strategy === "hub" ? "bg-indigo-600 text-white border-indigo-600 shadow-md" : "bg-white text-gray-500 border-gray-200 hover:bg-gray-50"}`}
-            >
-              Hub Strategy
-            </button>
+        <div className="p-4 overflow-y-auto flex-1 bg-gray-50/50 min-h-[400px]">
+          {/* Main Control Bar */}
+          <div className="flex flex-col mb-6">
+            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Strategy Type</label>
+            <div className="flex items-center justify-start">
+              <div className="inline-flex items-center gap-3 w-full">
+                {/* Main Input Group: Full width when Hub, otherwise inline */}
+                <div className={`flex rounded-lg shadow-sm border border-slate-300 bg-white overflow-visible focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 transition-all relative z-10 ${strategy === "hub" ? "w-full" : "inline-flex"}`}>
+                  <div className="flex divide-x divide-slate-200 shrink-0 rounded-l-lg">
+                    <button
+                      onClick={() => {
+                        if (isHubConfirmed && strategy === "hub") return;
+                        setStrategy("direct");
+                        setIsHubConfirmed(false);
+                      }}
+                      disabled={isHubConfirmed && strategy === "hub"}
+                      className={`px-4 py-2.5 text-sm font-medium transition-colors ${strategy === "direct"
+                        ? "bg-indigo-50 text-indigo-700"
+                        : isHubConfirmed
+                          ? "text-slate-400 cursor-not-allowed bg-slate-50"
+                          : "text-slate-600 hover:bg-slate-100 bg-slate-50"
+                        } rounded-l-lg`}
+                    >
+                      Direct
+                    </button>
+                    <button
+                      onClick={() => {
+                        if (isHubConfirmed && strategy === "hub") return;
+                        setStrategy("hub");
+                        setIsHubConfirmed(false);
+                      }}
+                      disabled={isHubConfirmed && strategy === "hub"}
+                      className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${strategy === "hub"
+                        ? "bg-indigo-50 text-indigo-700"
+                        : "text-slate-600 hover:bg-slate-100 bg-slate-50"
+                        } ${strategy === "direct" ? "rounded-r-lg" : ""}`}
+                    >
+                      Hub
+                      {strategy === "hub" && <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>}
+                    </button>
+                  </div>
+
+                  <div
+                    className={`flex items-center relative bg-white rounded-r-lg transition-all duration-300 ease-in-out ${strategy === "hub" ? "w-full opacity-100 overflow-visible" : "w-0 opacity-0 overflow-hidden"}`}
+                  >
+                    {strategy === "hub" && (
+                      <div className="flex items-center py-1 pr-2 pl-3 w-full" style={{ minWidth: "230px" }}>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-slate-400 text-sm">via</span>
+                          <input
+                            type="text"
+                            placeholder="CODE"
+                            className={`w-12 bg-transparent border-none p-0 text-slate-800 placeholder-slate-300 focus:ring-0 font-semibold uppercase outline-none ${isHubConfirmed ? "cursor-default" : ""}`}
+                            value={hub}
+                            readOnly={isHubConfirmed}
+                            onChange={(e) => handleHubChange(e.target.value.toUpperCase())}
+                            onKeyDown={(e) => e.key === 'Enter' && hub.length >= 3 && !isHubConfirmed && confirmHub()}
+                          />
+                        </div>
+
+                        <div className="flex-1"></div>
+
+                        {/* Recent Pills - Inline */}
+                        {!isHubConfirmed && recentHubs.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 mr-3 overflow-hidden h-7">
+                            {recentHubs.slice(0, 3).map((h) => (
+                              <div
+                                key={h}
+                                onClick={() => { setHub(h); }}
+                                className="group flex items-center bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded-full px-2 py-0.5 text-[10px] font-bold cursor-pointer transition-colors border border-transparent hover:border-indigo-100">
+                                <span>{h}</span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    RecentAirports.remove(h);
+                                    setRecentHubs(prev => prev.filter(x => x !== h));
+                                  }}
+                                  className="ml-1 text-slate-400 hover:text-red-500 rounded-full p-0.5 transition-all"
+                                >
+                                  <X size={8} />
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+
+                        {/* Dropdown Trigger */}
+                        {!isHubConfirmed && (
+                          <div className="relative ml-auto">
+                            <button
+                              onClick={() => setShowRecentDropdown(!showRecentDropdown)}
+                              className="flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 px-2 py-1 rounded transition-colors whitespace-nowrap"
+                            >
+                              <History size={12} />
+                              <ChevronDown size={12} className="ml-0.5" />
+                            </button>
+
+                            {/* The Dropdown */}
+                            {showRecentDropdown && (
+                              <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-xl border border-slate-100 z-50 p-2 text-left">
+                                <div className="text-[10px] text-slate-400 uppercase font-bold px-2 py-1 mb-1">Recent Hubs</div>
+                                {recentHubs.length > 0 ? (
+                                  <div className="grid grid-cols-4 gap-1">
+                                    {recentHubs.slice(0, 12).map(h => (
+                                      <button
+                                        key={h}
+                                        onClick={() => {
+                                          setHub(h);
+                                          setShowRecentDropdown(false);
+                                        }}
+                                        className="px-2 py-1.5 bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded text-xs font-medium transition-colors"
+                                      >
+                                        {h}
+                                      </button>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <div className="text-xs text-slate-400 px-2 italic">No recent hubs</div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* External Action Button (Check or Pencil) - Only for Hub */}
+                {strategy === "hub" && (
+                  <button
+                    onClick={() => {
+                      if (isHubConfirmed) {
+                        setIsHubConfirmed(false); // Unlock
+                      } else {
+                        confirmHub();
+                      }
+                    }}
+                    className={`shrink-0 w-10 h-10 flex items-center justify-center rounded-full transition-colors shadow-sm ${isHubConfirmed
+                      ? "bg-white text-slate-400 hover:text-indigo-600 border border-slate-200 hover:border-indigo-200"
+                      : (!hub || hub.length < 3)
+                        ? "bg-gray-100 text-gray-300 cursor-not-allowed"
+                        : "bg-green-100 text-green-600 hover:bg-green-200 hover:text-green-700"
+                      }`}
+                    disabled={!isHubConfirmed && (!hub || hub.length < 3)}
+                    title={isHubConfirmed ? "Edit Hub" : "Confirm Hub"}
+                  >
+                    {isHubConfirmed ? <Edit3 size={16} /> : <Check size={20} />}
+                  </button>
+                )}
+              </div>
+            </div>
           </div>
 
-          {strategy === "direct" ? (
-            <div className="space-y-4">
-              {segments.map((seg, i) => (
-                <FlightInput
-                  key={i}
-                  label={`Flight Segment #${i + 1}`}
-                  value={seg}
-                  onChange={(val) => {
-                    const n = [...segments];
-                    n[i] = val;
-                    setSegments(n);
-                  }}
-                  showRemove={segments.length > 1}
-                  onRemove={() => {
-                    const n = segments.filter((_, idx) => idx !== i);
-                    setSegments(n);
-                  }}
-                  onMoveUp={() => setSegments(moveItem(segments, i, i - 1))}
-                  onMoveDown={() => setSegments(moveItem(segments, i, i + 1))}
-                  isFirst={i === 0}
-                  isLast={i === segments.length - 1}
-                  config={config}
-                  dateContext={dateContext}
-                  isGuest={isGuest}
-                />
-              ))}
-              <button
-                onClick={() => setSegments([...segments, { flight: "", dep: "", arr: "", status: "" }])}
-                className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 font-bold hover:border-indigo-400 hover:text-indigo-500 transition-colors"
-              >
-                + Add Connecting Leg
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-6">
-              <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
-                <label className="block text-xs font-bold text-indigo-800 uppercase mb-2">Connecting Hub</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {recentHubs.map((h) => (
-                    <div key={h} className="relative group">
-                      <button
-                        onClick={() => setHub(h)}
-                        className={`text-xs px-2 py-1 rounded border font-bold ${hub === h ? "bg-indigo-600 text-white border-indigo-600" : "bg-white text-gray-600 border-gray-200 hover:border-gray-400"}`}
-                      >
-                        {h}
-                      </button>
-                      <button
-                        onClick={() => {
-                          RecentAirports.remove(h);
-                          setRecentHubs(RecentAirports.get());
-                        }}
-                        className="absolute -top-1 -right-1 bg-red-400 text-white rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                        title="Remove"
-                      >
-                        <X size={8} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    className="w-24 border p-2 rounded font-bold uppercase"
-                    placeholder="HUB"
-                    value={hub}
-                    onChange={(e) => handleHubChange(e.target.value.toUpperCase())}
-                  />
-                  <p className="text-[10px] text-indigo-400">Specify hub to see flight options.</p>
-                </div>
-              </div>
-
-              {hub && (
-                <>
-                  <HubStrategyInputs
-                    inbounds={inbounds}
-                    setInbounds={setInbounds}
-                    outbounds={outbounds}
-                    setOutbounds={setOutbounds}
-                    hub={hub}
+          <div className="mt-4">
+            {strategy === "direct" ? (
+              <div className="space-y-4 animate-in slide-in-from-bottom-2 fade-in duration-300">
+                {segments.map((seg, i) => (
+                  <FlightInput
+                    key={i}
+                    label={`Flight Segment #${i + 1}`}
+                    value={seg}
+                    onChange={(val) => {
+                      const n = [...segments];
+                      n[i] = val;
+                      setSegments(n);
+                    }}
+                    showRemove={segments.length > 1}
+                    onRemove={() => {
+                      const n = segments.filter((_, idx) => idx !== i);
+                      setSegments(n);
+                    }}
+                    onMoveUp={() => setSegments(moveItem(segments, i, i - 1))}
+                    onMoveDown={() => setSegments(moveItem(segments, i, i + 1))}
+                    isFirst={i === 0}
+                    isLast={i === segments.length - 1}
                     config={config}
                     dateContext={dateContext}
                     isGuest={isGuest}
                   />
-                </>
-              )}
-            </div>
-          )}
+                ))}
+                <button
+                  onClick={() => setSegments([...segments, { flight: "", dep: "", arr: "", status: "" }])}
+                  className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 font-bold hover:border-indigo-400 hover:text-indigo-500 transition-colors"
+                >
+                  + Add Connecting Leg
+                </button>
+              </div>
+            ) : (
+              <>
+                {isHubConfirmed && (
+                  <div className="animate-in slide-in-from-bottom-2 fade-in duration-300">
+                    <HubStrategyInputs
+                      inbounds={inbounds}
+                      setInbounds={setInbounds}
+                      outbounds={outbounds}
+                      setOutbounds={setOutbounds}
+                      hub={hub}
+                      config={config}
+                      dateContext={dateContext}
+                      isGuest={isGuest}
+                    />
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
 
         <div className="p-4 border-t bg-white rounded-b-xl flex justify-end gap-2">
