@@ -39,7 +39,6 @@ export default function App() {
   const activeBlockId = useBoundStore((state) => state.activeBlockId);
   const editContext = useBoundStore((state) => state.editContext);
   const confirmModal = useBoundStore((state) => state.confirmModal);
-  const pasteContext = useBoundStore((state) => state.pasteContext);
 
   // Schedule / Edit Mode State
   const isEditMode = useBoundStore((state) => state.isEditMode);
@@ -56,7 +55,6 @@ export default function App() {
     setActiveBlockId,
     setEditContext,
     setConfirmModal,
-    setPasteContext,
     enterEditMode,
     executeCommit,
     executeDiscard,
@@ -72,7 +70,6 @@ export default function App() {
     setActiveBlockId: state.setActiveBlockId,
     setEditContext: state.setEditContext,
     setConfirmModal: state.setConfirmModal,
-    setPasteContext: state.setPasteContext,
     enterEditMode: state.enterEditMode,
     executeCommit: state.executeCommit,
     executeDiscard: state.executeDiscard,
@@ -162,31 +159,13 @@ export default function App() {
     setModalOpen("edit", false);
   };
 
-  const handlePastePlan = (rowId: string, targetOptions: any[]) => {
+  const executePaste = (rowId: string) => {
     if (!clipboardPlan) return;
-    if (targetOptions.length > 0) {
-      setPasteContext({ rowId });
-      setConfirmModal({ isOpen: true, type: "paste" });
-    } else {
-      // Paste directly
-      if (!isEditMode) enterEditMode(scheduleData);
-      modifyOptions(airport, rowId, (options) => {
-        options.length = 0;
-        options.push(...JSON.parse(JSON.stringify(clipboardPlan)));
-      });
-    }
-  };
-
-  const executePaste = () => {
-    if (!pasteContext || !clipboardPlan) return;
-    if (!isEditMode) enterEditMode(scheduleData);
-
-    modifyOptions(airport, pasteContext.rowId, (options) => {
+    modifyOptions(airport, rowId, (options) => {
       options.length = 0;
       options.push(...JSON.parse(JSON.stringify(clipboardPlan)));
     });
-    setPasteContext(null);
-    setConfirmModal({ isOpen: false, type: null });
+    setClipboardPlan(null);
   };
 
   const deleteOption = (rowId: string, index: number) => {
@@ -255,6 +234,10 @@ export default function App() {
 
   const virtualItems = rowVirtualizer.getVirtualItems();
 
+  useEffect(() => {
+    if (!isEditMode) setClipboardPlan(null);
+  }, [isEditMode])
+
   return (
     <div className={`min-h-screen font-sans text-gray-900 pb-20 ${isEditMode ? "bg-gray-100" : "bg-white"}`}>
       <Header
@@ -314,7 +297,7 @@ export default function App() {
                     onReorderOptions={reorderOptions}
                     flightStatuses={flightStatuses}
                     onCopyPlan={(opt) => setClipboardPlan(JSON.parse(JSON.stringify(opt)))}
-                    onPastePlan={(rowId) => handlePastePlan(rowId, row.options)}
+                    onPastePlan={(rowId) => executePaste(rowId)}
                     hasClipboard={!!clipboardPlan}
                   />
                 </div>
@@ -334,6 +317,33 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {!!clipboardPlan && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-100 animate-in fade-in slide-in-from-bottom-4 duration-200">
+          <button
+            onClick={() => setClipboardPlan(null)}
+            className="flex items-center gap-2 px-6 py-3 rounded-full shadow-xl transition-all transform hover:-translate-y-0.5 font-bold text-xs uppercase tracking-wide
+        bg-red-50 border border-red-200 text-red-400
+        hover:bg-red-100 hover:border-red-300 hover:text-red-700 hover:shadow-red-100"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M18 6 6 18" />
+              <path d="m6 6 12 12" />
+            </svg>
+            Cancel Paste
+          </button>
+        </div>
+      )}
 
       {/* Modals */}
       <EditOptionModal
@@ -378,10 +388,21 @@ export default function App() {
         isOpen={confirmModal.isOpen}
         type={confirmModal.type}
         onConfirm={() => {
-          if (confirmModal.type === "commit") handleCommit();
-          else if (confirmModal.type === "logout") { AuthService.logout(); useBoundStore.getState().setUser(null); setConfirmModal({ isOpen: false, type: null }); }
-          else if (confirmModal.type === "paste") executePaste();
-          else executeDiscard();
+          switch (confirmModal.type) {
+            case "commit":
+              handleCommit();
+              break;
+            case "logout":
+              AuthService.logout();
+              useBoundStore.getState().setUser(null);
+              break;
+            // case "paste":
+            //   executePaste();
+            //   break;
+            case "discard":
+            default:
+              executeDiscard();
+          }
           setConfirmModal({ isOpen: false, type: null });
         }}
         onCancel={() => setConfirmModal({ isOpen: false, type: null })}

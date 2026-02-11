@@ -64,7 +64,8 @@ export interface Option {
   finalArr?: string | undefined;
 }
 
-export type ConfirmType = "commit" | "discard" | "logout" | "paste" | null;
+// export type ConfirmType = "commit" | "discard" | "logout" | "paste" | null;
+export type ConfirmType = "commit" | "discard" | "logout" | null;
 
 export interface RowData {
   key: string;

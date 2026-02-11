@@ -1,6 +1,8 @@
 import { Plane, RefreshCw, LogOut, Edit3, Save, Undo, Redo, Settings } from "lucide-react";
 import { Config, ReserveBlock, ScheduleData, User } from "../../types";
 import { ConfirmType } from "../modals/ConfirmModal.tsx";
+import { useBoundStore } from "../../stores/useBoundStore.ts";
+import { useShallow } from "zustand/react/shallow";
 
 interface HeaderProps {
   isEditMode: boolean;
@@ -41,13 +43,19 @@ export default function Header({
   executeGuestLogin,
   onSave,
 }: HeaderProps) {
+  const {
+    executeDiscard,
+  } = useBoundStore(useShallow((state) => ({
+    executeDiscard: state.executeDiscard,
+  })));
+
   return (
     <div
       className={`sticky top-0 z-100 border-b shadow-sm transition-colors ${isEditMode ? "bg-yellow-50 border-yellow-200" : "bg-white border-gray-200"
         }`}
     >
       {isEditMode && (
-        <div className="bg-yellow-400 text-yellow-900 text-xs font-bold text-center py-0.5">
+        <div className="bg-yellow-400 text-yellow-900 text-xs font-bold text-center py-0.5 w-full opacity-85 fixed">
           EDITING MODE — Unsaved Changes
         </div>
       )}
@@ -155,7 +163,13 @@ export default function Header({
                 </button>
                 <div className="h-4 w-px bg-gray-300 mx-1"></div>
                 <button
-                  onClick={() => setConfirmModal({ isOpen: true, type: "discard" })}
+                  onClick={() => {
+                    if (history.length > 0) {
+                      setConfirmModal({ isOpen: true, type: "discard" });
+                    } else {
+                      executeDiscard();
+                    }
+                  }}
                   className="flex items-center gap-1 px-3 py-1.5 bg-gray-200 text-gray-600 rounded-full font-bold text-xs hover:bg-gray-300"
                 >
                   Discard

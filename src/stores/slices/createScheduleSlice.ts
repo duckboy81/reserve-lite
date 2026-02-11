@@ -60,6 +60,7 @@ export const createScheduleSlice: StateCreator<ScheduleSlice> = (set, get) => ({
             history: [],
             future: [],
             isEditMode: false,
+
         });
     },
 

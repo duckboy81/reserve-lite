@@ -1,6 +1,7 @@
 import { X, AlertTriangle } from "lucide-react";
 
-export type ConfirmType = "commit" | "discard" | "logout" | "paste" | null;
+// export type ConfirmType = "commit" | "discard" | "logout" | "paste" | null;
+export type ConfirmType = "commit" | "discard" | "logout" | null;
 
 interface ConfirmModalProps {
   isOpen: boolean;
@@ -41,12 +42,12 @@ const ConfirmModal: React.FC<ConfirmModalProps> = ({
       confirmText = "Logout";
       confirmColor = "bg-red-600";
       break;
-    case "paste":
-      title = "Overwrite Plan?";
-      message = "This hour already has a plan. Overwrite it?";
-      confirmText = "Overwrite";
-      confirmColor = "bg-indigo-600";
-      break;
+    // case "paste":
+    //   title = "Overwrite Plan?";
+    //   message = "This hour already has a plan. Overwrite it?";
+    //   confirmText = "Overwrite";
+    //   confirmColor = "bg-indigo-600";
+    //   break;
   }
 
   return (
