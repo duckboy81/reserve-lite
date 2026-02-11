@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Edit3, X, History, ChevronDown, Check } from "lucide-react";
+import { Edit3, X, History, ChevronDown, Check, Plane } from "lucide-react";
 import FlightInput from "../inputs/FlightInput";
 import HubStrategyInputs from "./HubStrategyInputs";
 import { RecentAirports } from "../../services/StorageService";
@@ -49,34 +49,79 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
   }, [isOpen, activeBlockBase, currentAirport]);
 
   useEffect(() => {
+    const blankOptions = {
+      flight: "",
+      dep: "",
+      arr: "",
+      status: "",
+    }
+
+    // Helper to create a default inbound segment
+    const defaultInbound = (hubCode: string = ""): FlightSegment => ({
+      ...blankOptions,
+      depAirport: config.homeBase,
+      arrAirport: hubCode
+    });
+
+    // Helper to create a default outbound segment
+    const defaultOutbound = (hubCode: string = ""): FlightSegment => ({
+      ...blankOptions,
+      depAirport: hubCode,
+      arrAirport: config.reserveBase,
+      isPrimary: true // TODO: Remove isPrimary usage
+    });
+
     if (isOpen && initialOption) {
       if (initialOption.type === "hub-strategy") {
         setStrategy("hub");
-        setHub(initialOption.hub || "");
+        const currentHub = initialOption.hub || "";
+        setHub(currentHub);
         setIsHubConfirmed(true);
-        setInbounds(
-          Array.isArray(initialOption.inbound)
-            ? initialOption.inbound
-            : initialOption.inbound
-              ? [initialOption.inbound]
-              : [],
-        );
-        setOutbounds(initialOption.outbound || []);
+
+        // Normalize inbound data
+        let loadedInbounds = Array.isArray(initialOption.inbound)
+          ? initialOption.inbound
+          : initialOption.inbound
+            ? [initialOption.inbound]
+            : [];
+
+        // Ensure at least one inbound exists
+        if (loadedInbounds.length === 0) {
+          loadedInbounds = [defaultInbound(currentHub)];
+        }
+        setInbounds(loadedInbounds);
+
+        // Normalize outbound data
+        let loadedOutbounds = initialOption.outbound || [];
+
+        // Ensure at least one outbound exists
+        if (loadedOutbounds.length === 0) {
+          loadedOutbounds = [defaultOutbound(currentHub)];
+        }
+        setOutbounds(loadedOutbounds);
+
       } else {
+        // Editing a Direct strategy, but pre-fill Hub data so it's ready if they switch
         setStrategy("direct");
         setSegments(initialOption.segments || []);
+
+        // Reset/Init Hub fields so inputs appear if user toggles to "Hub"
+        setHub("");
+        setIsHubConfirmed(false);
+        setInbounds([defaultInbound()]);
+        setOutbounds([defaultOutbound()]);
       }
     } else if (isOpen) {
+      // New Entry
       setStrategy("direct");
       setHub("");
       setIsHubConfirmed(false);
       setSegments([
         { flight: "", dep: "", arr: "", status: "", depAirport: config.homeBase, arrAirport: config.reserveBase },
       ]);
-      setInbounds([{ flight: "", dep: "", arr: "", status: "", depAirport: config.homeBase, arrAirport: "" }]);
-      setOutbounds([
-        { flight: "", dep: "", arr: "", status: "", depAirport: "", arrAirport: config.reserveBase, isPrimary: true },
-      ]);
+      // Always initialize with one empty slot for hub strategy
+      setInbounds([defaultInbound()]);
+      setOutbounds([defaultOutbound()]);
     }
   }, [isOpen, initialOption, config]);
 
@@ -108,11 +153,6 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
     } else {
       const cleanInbounds = inbounds.filter((i) => i.flight);
       const cleanOutbounds = outbounds.filter((o) => o.flight);
-
-      // Relaxed validation: Just need hub really, but ideally some legs
-      // If user just saves hub without legs, it might be valid partial data?
-      // Existing logic required legs. Let's keep it but maybe ensure they can't save if empty?
-      // actually the prompt implies we minimize data entry, so maybe they fill it out.
 
       if (cleanInbounds.length === 0 && cleanOutbounds.length === 0) return;
 
@@ -181,7 +221,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
                         } ${strategy === "direct" ? "rounded-r-lg" : ""}`}
                     >
                       Hub
-                      {strategy === "hub" && <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>}
+                      {strategy === "hub" && !isHubConfirmed && <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>}
                     </button>
                   </div>
 
@@ -211,7 +251,9 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
                             {recentHubs.slice(0, 3).map((h) => (
                               <div
                                 key={h}
-                                onClick={() => { setHub(h); }}
+                                onClick={() => {
+                                  confirmHub(h);
+                                }}
                                 className="group flex items-center bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded-full px-2 py-0.5 text-[10px] font-bold cursor-pointer transition-colors border border-transparent hover:border-indigo-100">
                                 <span>{h}</span>
                                 <button
@@ -303,7 +345,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
                 {segments.map((seg, i) => (
                   <FlightInput
                     key={i}
-                    label={`Flight Segment #${i + 1}`}
+                    id={i}
                     value={seg}
                     onChange={(val) => {
                       const n = [...segments];
@@ -333,6 +375,17 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
               </div>
             ) : (
               <>
+                {!isHubConfirmed && (
+                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center  rounded-xl bg-slate-50/50">
+                    <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3">
+                      <Plane className="text-indigo-500 rotate-45" size={24} />
+                    </div>
+                    <h3 className="text-sm font-bold text-slate-700 mb-1">Set Connection Hub</h3>
+                    <p className="text-xs text-slate-500 max-w-[200px]">
+                      Enter a 3-letter airport code above to configure your inbound and outbound flights.
+                    </p>
+                  </div>
+                )}
                 {isHubConfirmed && (
                   <div className="animate-in slide-in-from-bottom-2 fade-in duration-300">
                     <HubStrategyInputs

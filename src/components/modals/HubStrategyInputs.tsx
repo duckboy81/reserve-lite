@@ -29,13 +29,13 @@ const HubStrategyInputs: React.FC<HubStrategyInputsProps> = ({
     <>
       <div>
         <h4 className="font-bold text-sm text-gray-700 mb-2 flex items-center gap-2">
-          <Plane size={14} /> Inbound Legs (To Hub)
+          <Plane size={14} /> Inbound Options (To Hub)
         </h4>
         <div className="pl-6 border-l-2 border-gray-200 ml-1">
           {inbounds.map((seg, i) => (
             <FlightInput
               key={i}
-              label={`Inbound Option #${i + 1}`}
+              id={i}
               value={seg}
               onChange={(val) => {
                 const n = [...inbounds];
@@ -76,7 +76,7 @@ const HubStrategyInputs: React.FC<HubStrategyInputsProps> = ({
           {outbounds.map((seg, i) => (
             <FlightInput
               key={i}
-              label={i === 0 ? "Primary Outbound" : `Alternative Outbound #${i}`}
+              id={i}
               value={seg}
               onChange={(val) => {
                 const n = [...outbounds];
@@ -104,7 +104,7 @@ const HubStrategyInputs: React.FC<HubStrategyInputsProps> = ({
             onClick={() => setOutbounds([...outbounds, { flight: "", dep: "", arr: "", status: "", isPrimary: false }])}
             className="mt-2 text-xs font-bold text-indigo-600 flex items-center gap-1 hover:underline"
           >
-            <Plus size={14} /> Add Alternative Option
+            <Plus size={14} /> Add Outbound Option
           </button>
         </div>
       </div>

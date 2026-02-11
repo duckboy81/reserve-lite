@@ -7,7 +7,7 @@ import { FlightSegment, Config, SearchResult } from "../../types";
 import RecentAirportsDropdown from "./RecentAirportsDropdown";
 
 interface FlightInputProps {
-  label: string;
+  id: number;
   value: FlightSegment;
   onChange: (value: FlightSegment) => void;
   onRemove: () => void;
@@ -26,7 +26,7 @@ interface FlightInputProps {
 }
 
 const FlightInput: React.FC<FlightInputProps> = ({
-  label,
+  id,
   value,
   onChange,
   onRemove,
@@ -43,7 +43,6 @@ const FlightInput: React.FC<FlightInputProps> = ({
   isGuest = false,
   targetTime,
 }) => {
-  // value = { flight: 'DL123', dep: 'HH:mm', arr: 'HH:mm', depAirport: 'ATL', arrAirport: 'LAX', ground: { duration: '1.5', hub: 'DTW' } }
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
   const [searchParams, setSearchParams] = useState({
@@ -215,33 +214,6 @@ const FlightInput: React.FC<FlightInputProps> = ({
         </div>
       )}
 
-      <div className="flex justify-between items-center mb-2">
-        <span className="text-xs font-bold text-gray-500 uppercase">{label}</span>
-        <div className="flex gap-2">
-          <div className="relative group/tooltip">
-            <button
-              onClick={() => !isSearchDisabled && setShowSearch(!showSearch)}
-              className={`text-xs font-bold flex items-center gap-1 px-2 py-1 rounded transition-colors ${isSearchDisabled
-                ? "text-gray-400 cursor-not-allowed bg-gray-100 hover:bg-gray-100"
-                : "text-indigo-600 hover:bg-indigo-50 cursor-pointer"
-                }`}
-            >
-              <Search size={12} /> {showSearch ? "Cancel Lookup" : "Find Flight"}
-            </button>
-            {isSearchDisabled && (
-              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-sm opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
-                {disabledReason}ssadaa
-              </span>
-            )}
-          </div>
-          {showRemove && (
-            <button onClick={onRemove} className="text-red-400 hover:text-red-600">
-              <X size={14} />
-            </button>
-          )}
-        </div>
-      </div>
-
       {showSearch && (
         <div className="bg-gray-50 p-3 rounded mb-3 border border-indigo-100">
           <div className="grid grid-cols-3 gap-2 mb-2 relative">
@@ -352,51 +324,76 @@ const FlightInput: React.FC<FlightInputProps> = ({
         </div>
       )}
 
-      <div className="flex gap-2 items-center">
-        <div className="w-16">
-          <label className="text-[10px] text-gray-400 font-bold">FLIGHT</label>
-          <input
-            className="w-full border p-1.5 rounded font-mono text-sm uppercase"
-            value={value?.flight || ""}
-            onChange={(e) => updateField("flight", e.target.value)}
-            placeholder="DL123"
-          />
+      <div className="flex justify-between items-start mb-2">
+        <div className="flex gap-2 items-center">
+          <div className="w-16">
+            <label className="text-[10px] text-gray-400 font-bold">FLIGHT</label>
+            <input
+              className="w-full border p-1.5 rounded font-mono text-sm uppercase"
+              value={value?.flight || ""}
+              onChange={(e) => updateField("flight", e.target.value)}
+              placeholder="DL123"
+            />
+          </div>
+          <div className="w-14">
+            <label className="text-[10px] text-gray-400 font-bold">ORG</label>
+            <input
+              className="w-full border p-1.5 rounded font-mono text-sm uppercase"
+              value={value?.depAirport || ""}
+              onChange={(e) => updateField("depAirport", e.target.value)}
+              placeholder="ATL"
+            />
+          </div>
+          <div className="w-16">
+            <label className="text-[10px] text-gray-400 font-bold">DEP</label>
+            <input
+              className="w-full border p-1.5 rounded font-mono text-sm"
+              value={value?.dep || ""}
+              onChange={(e) => updateField("dep", e.target.value)}
+              placeholder="08:00"
+            />
+          </div>
+          <div className="w-16">
+            <label className="text-[10px] text-gray-400 font-bold">ARR</label>
+            <input
+              className="w-full border p-1.5 rounded font-mono text-sm"
+              value={value?.arr || ""}
+              onChange={(e) => updateField("arr", e.target.value)}
+              placeholder="10:30"
+            />
+          </div>
+          <div className="w-14">
+            <label className="text-[10px] text-gray-400 font-bold">DEST</label>
+            <input
+              className="w-full border p-1.5 rounded font-mono text-sm uppercase"
+              value={value?.arrAirport || ""}
+              onChange={(e) => updateField("arrAirport", e.target.value)}
+              placeholder="LAX"
+            />
+          </div>
         </div>
-        <div className="w-14">
-          <label className="text-[10px] text-gray-400 font-bold">ORG</label>
-          <input
-            className="w-full border p-1.5 rounded font-mono text-sm uppercase"
-            value={value?.depAirport || ""}
-            onChange={(e) => updateField("depAirport", e.target.value)}
-            placeholder="ATL"
-          />
-        </div>
-        <div className="w-16">
-          <label className="text-[10px] text-gray-400 font-bold">DEP</label>
-          <input
-            className="w-full border p-1.5 rounded font-mono text-sm"
-            value={value?.dep || ""}
-            onChange={(e) => updateField("dep", e.target.value)}
-            placeholder="08:00"
-          />
-        </div>
-        <div className="w-16">
-          <label className="text-[10px] text-gray-400 font-bold">ARR</label>
-          <input
-            className="w-full border p-1.5 rounded font-mono text-sm"
-            value={value?.arr || ""}
-            onChange={(e) => updateField("arr", e.target.value)}
-            placeholder="10:30"
-          />
-        </div>
-        <div className="w-14">
-          <label className="text-[10px] text-gray-400 font-bold">DEST</label>
-          <input
-            className="w-full border p-1.5 rounded font-mono text-sm uppercase"
-            value={value?.arrAirport || ""}
-            onChange={(e) => updateField("arrAirport", e.target.value)}
-            placeholder="LAX"
-          />
+        <div className="flex gap-2">
+          <div className="relative group/tooltip">
+            <button
+              onClick={() => !isSearchDisabled && setShowSearch(!showSearch)}
+              className={`text-xs font-bold flex items-center gap-1 px-2 py-1 rounded transition-colors ${isSearchDisabled
+                ? "text-gray-400 cursor-not-allowed bg-gray-100 hover:bg-gray-100"
+                : "text-indigo-600 hover:bg-indigo-50 cursor-pointer"
+              }`}
+            >
+              <Search size={12} /> {showSearch ? "Cancel Lookup" : "Find Flight"}
+            </button>
+            {isSearchDisabled && (
+              <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-sm opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+                {disabledReason}ssadaa
+              </span>
+            )}
+          </div>
+          {showRemove && (
+            <button onClick={onRemove} className="text-red-400 hover:text-red-600">
+              <X size={14} />
+            </button>
+          )}
         </div>
       </div>
 
@@ -405,12 +402,12 @@ const FlightInput: React.FC<FlightInputProps> = ({
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
-              id={`ground-${label}`}
+              id={`ground-${id}`}
               checked={showGround}
               onChange={toggleGround}
               className="rounded text-indigo-600 focus:ring-indigo-500"
             />
-            <label htmlFor={`ground-${label}`} className="text-xs text-gray-600 select-none cursor-pointer">
+            <label htmlFor={`ground-${id}`} className="text-xs text-gray-600 select-none cursor-pointer">
               Add Ground Commute
             </label>
           </div>
