@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from "react";
-import { Edit3, X, History, ChevronDown, Check, Plane } from "lucide-react";
-import FlightInput from "../inputs/FlightInput";
-import HubStrategyInputs from "./HubStrategyInputs";
+import { Edit3, X, History, ChevronDown, Check, Plane, ArrowRight, PlaneTakeoff, PlaneLanding, Plus, Trash2, Car } from "lucide-react";
+import FlightForm from "./FlightForm";
 import { RecentAirports } from "../../services/StorageService";
-import { moveItem } from "../../utils/dateUtil";
 import { Option, Config, FlightSegment } from "../../types";
 
 interface EditOptionModalProps {
@@ -18,6 +16,31 @@ interface EditOptionModalProps {
   currentAirport?: string | undefined;
 }
 
+// Helper to calculate duration between "HH:mm" strings
+// Helper to calculate duration between "HH:mm" strings
+const calculateDuration = (startStr: string, endStr: string) => {
+  if (!startStr || !endStr) return "--";
+  const startParts = startStr.split(':').map(Number);
+  const endParts = endStr.split(':').map(Number);
+
+  if (startParts.length !== 2 || endParts.length !== 2) return "--";
+
+  const [sh, sm] = startParts;
+  const [eh, em] = endParts;
+
+  if (sh === undefined || sm === undefined || eh === undefined || em === undefined) return "--";
+
+  let startMins = sh * 60 + sm;
+  let endMins = eh * 60 + em;
+
+  if (endMins < startMins) endMins += 24 * 60; // Handle Next day arrival
+
+  const diff = endMins - startMins;
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  return `${h}h ${m.toString().padStart(2, '0')}m`;
+};
+
 const EditOptionModal: React.FC<EditOptionModalProps> = ({
   isOpen,
   onClose,
@@ -29,17 +52,22 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
   activeBlockBase,
   currentAirport,
 }) => {
+  // Main State
+  const [strategy, setStrategy] = useState<"direct" | "hub">("direct");
   const [isHubConfirmed, setIsHubConfirmed] = useState(false);
+  const [hub, setHub] = useState("");
+  const [recentHubs, setRecentHubs] = useState<string[]>([]);
   const [showRecentDropdown, setShowRecentDropdown] = useState(false);
 
-  const [strategy, setStrategy] = useState<"direct" | "hub">("direct");
-  const [hub, setHub] = useState("");
-  // Direct Segments
-  const [segments, setSegments] = useState<FlightSegment[]>([]);
-  // Hub Strategy Parts
-  const [inbounds, setInbounds] = useState<FlightSegment[]>([]);
-  const [outbounds, setOutbounds] = useState<FlightSegment[]>([]);
-  const [recentHubs, setRecentHubs] = useState<string[]>([]);
+  // Flight Data State
+  const [segments, setSegments] = useState<FlightSegment[]>([]); // For Direct
+  const [inbounds, setInbounds] = useState<FlightSegment[]>([]); // For Hub
+  const [outbounds, setOutbounds] = useState<FlightSegment[]>([]); // For Hub
+
+  // Editing State (for switching to FlightForm)
+  // type: 'inbound' | 'outbound' | 'direct'
+  // index: number (if editing existing) or -1 (if adding new)
+  const [editingState, setEditingState] = useState<{ type: 'inbound' | 'outbound' | 'direct', index: number } | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -49,81 +77,33 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
   }, [isOpen, activeBlockBase, currentAirport]);
 
   useEffect(() => {
-    const blankOptions = {
-      flight: "",
-      dep: "",
-      arr: "",
-      status: "",
-    }
-
-    // Helper to create a default inbound segment
-    const defaultInbound = (hubCode: string = ""): FlightSegment => ({
-      ...blankOptions,
-      depAirport: config.homeBase,
-      arrAirport: hubCode
-    });
-
-    // Helper to create a default outbound segment
-    const defaultOutbound = (hubCode: string = ""): FlightSegment => ({
-      ...blankOptions,
-      depAirport: hubCode,
-      arrAirport: config.reserveBase,
-      isPrimary: true // TODO: Remove isPrimary usage
-    });
-
     if (isOpen && initialOption) {
       if (initialOption.type === "hub-strategy") {
         setStrategy("hub");
         const currentHub = initialOption.hub || "";
         setHub(currentHub);
-        setIsHubConfirmed(true);
-
-        // Normalize inbound data
-        let loadedInbounds = Array.isArray(initialOption.inbound)
-          ? initialOption.inbound
-          : initialOption.inbound
-            ? [initialOption.inbound]
-            : [];
-
-        // Ensure at least one inbound exists
-        if (loadedInbounds.length === 0) {
-          loadedInbounds = [defaultInbound(currentHub)];
-        }
-        setInbounds(loadedInbounds);
-
-        // Normalize outbound data
-        let loadedOutbounds = initialOption.outbound || [];
-
-        // Ensure at least one outbound exists
-        if (loadedOutbounds.length === 0) {
-          loadedOutbounds = [defaultOutbound(currentHub)];
-        }
-        setOutbounds(loadedOutbounds);
-
+        setIsHubConfirmed(!!currentHub);
+        setInbounds(initialOption.inbound || []);
+        setOutbounds(initialOption.outbound || []);
+        setSegments([]);
       } else {
-        // Editing a Direct strategy, but pre-fill Hub data so it's ready if they switch
         setStrategy("direct");
         setSegments(initialOption.segments || []);
-
-        // Reset/Init Hub fields so inputs appear if user toggles to "Hub"
         setHub("");
         setIsHubConfirmed(false);
-        setInbounds([defaultInbound()]);
-        setOutbounds([defaultOutbound()]);
+        setInbounds([]);
+        setOutbounds([]);
       }
     } else if (isOpen) {
       // New Entry
       setStrategy("direct");
       setHub("");
       setIsHubConfirmed(false);
-      setSegments([
-        { flight: "", dep: "", arr: "", status: "", depAirport: config.homeBase, arrAirport: config.reserveBase },
-      ]);
-      // Always initialize with one empty slot for hub strategy
-      setInbounds([defaultInbound()]);
-      setOutbounds([defaultOutbound()]);
+      setSegments([]);
+      setInbounds([]);
+      setOutbounds([]);
     }
-  }, [isOpen, initialOption, config]);
+  }, [isOpen, initialOption]);
 
   const handleHubChange = (val: string) => {
     setHub(val);
@@ -138,266 +118,318 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
     setIsHubConfirmed(true);
   };
 
-  const handleSave = () => {
+  const saveFlight = (segment: FlightSegment) => {
+    if (!editingState) return;
+    const { type, index } = editingState;
+
+    if (type === 'direct') {
+      const newSegs = [...segments];
+      if (index === -1) newSegs.push(segment);
+      else newSegs[index] = segment;
+      setSegments(newSegs);
+    } else if (type === 'inbound') {
+      const newSegs = [...inbounds];
+      if (index === -1) newSegs.push(segment);
+      else newSegs[index] = segment;
+      setInbounds(newSegs);
+    } else if (type === 'outbound') {
+      const newSegs = [...outbounds];
+      if (index === -1) newSegs.push(segment);
+      else newSegs[index] = segment;
+      setOutbounds(newSegs);
+    }
+    setEditingState(null); // Close Form
+  };
+
+  const deleteFlight = (type: 'inbound' | 'outbound' | 'direct', index: number) => {
+    if (type === 'direct') {
+      setSegments(segments.filter((_, i) => i !== index));
+    } else if (type === 'inbound') {
+      setInbounds(inbounds.filter((_, i) => i !== index));
+    } else if (type === 'outbound') {
+      setOutbounds(outbounds.filter((_, i) => i !== index));
+    }
+  };
+
+  const handleFinalSave = () => {
     let finalOpt: Option;
+
     if (strategy === "direct") {
-      const cleanSegs = segments.filter((s) => s.flight);
-      if (cleanSegs.length === 0) return;
-      const last = cleanSegs[cleanSegs.length - 1];
-      if (!last) return;
+      if (segments.length === 0) return; // TODO: Show error?
+      const last = segments[segments.length - 1];
       finalOpt = {
         type: "direct",
-        segments: cleanSegs,
-        finalArr: last.arr,
+        segments: segments,
+        finalArr: last.arr
       };
     } else {
-      const cleanInbounds = inbounds.filter((i) => i.flight);
-      const cleanOutbounds = outbounds.filter((o) => o.flight);
+      if (inbounds.length === 0 && outbounds.length === 0) return;
 
-      if (cleanInbounds.length === 0 && cleanOutbounds.length === 0) return;
-
-      const flaggedOut = cleanOutbounds.map((o, i) => ({ ...o, isPrimary: i === 0, isSecondary: i > 0 }));
-      const hubLabel = hub || cleanInbounds[0]?.arrAirport || "HUB";
+      const flaggedOut = outbounds.map((o, i) => ({ ...o, isPrimary: i === 0, isSecondary: i > 0 }));
+      const hubLabel = hub || (inbounds.length > 0 ? inbounds[0].arrAirport : "HUB");
 
       finalOpt = {
         type: "hub-strategy",
         hub: hubLabel,
-        inbound: cleanInbounds,
-        outbound: flaggedOut,
+        inbound: inbounds,
+        outbound: flaggedOut
       };
     }
     onSave(finalOpt);
   };
 
+  // Render Functions
+  const renderFlightCard = (fl: FlightSegment, index: number, type: 'inbound' | 'outbound' | 'direct') => {
+    const isStandard = false; // Logic to hide route if standard? 
+    // Superscript logic: simplistic for now (if arr time < dep time, assume +1)
+    const isNextDay = fl.arr < fl.dep;
+
+    // Ground Logic for specific Outbound visualization (Pills/Lines)
+    // Note: redesign.md puts ground transport as a separate visual block in the same card
+    let groundHTML = null;
+    if (fl.ground) {
+      groundHTML = (
+        <div className="border-l border-slate-100 pl-3 ml-1 flex flex-col justify-center">
+          <div className="flex flex-col items-center">
+            <div className="text-[9px] font-bold text-slate-400 flex items-center gap-1 mt-0.5">
+              <span className="text-indigo-500 bg-indigo-50 px-1 rounded flex items-center gap-1"><Car size={8} /> {fl.ground.mode}</span>
+              <span>{fl.ground.duration}h</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Inbound/Outbound specific styles
+    const barColor = type === 'inbound' ? 'bg-blue-500' : (type === 'outbound' ? 'bg-indigo-500' : 'bg-emerald-500');
+    const hoverBorder = type === 'inbound' ? 'hover:border-blue-300' : (type === 'outbound' ? 'hover:border-indigo-300' : 'hover:border-emerald-300');
+
+    // Layover Pills (Only for Outbound in Hub mode, relating to Inbound arrival)
+    // Logic: Calculate time from LAST Inbound Arrival to THIS Outbound Departure
+    let layoverPill = null;
+    if (type === 'outbound' && inbounds.length > 0) {
+      const lastInbound = inbounds[inbounds.length - 1];
+      if (lastInbound) {
+        const layover = calculateDuration(lastInbound.arr, fl.dep);
+        layoverPill = (
+          <div className="absolute -bottom-2.5 left-4 flex gap-1 z-20">
+            <div className="bg-white border border-slate-200 text-slate-500 text-[9px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div> {layover}
+            </div>
+          </div>
+        );
+      }
+    }
+
+    return (
+      <div key={index} className="relative mb-4">
+        <div
+          className={`group relative bg-white border border-slate-200 rounded-lg shadow-sm ${hoverBorder} transition-all cursor-pointer pl-3 overflow-visible`}
+          onClick={() => setEditingState({ type, index })}
+        >
+          <div className={`absolute left-0 top-0 bottom-0 w-1 ${barColor} rounded-l-lg`}></div>
+          <div className="p-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="font-mono text-sm font-bold text-slate-800 w-12 flex flex-col">
+                  <span className="text-xs text-slate-800 font-bold">{fl.flight}</span>
+                </div>
+
+                <div className="flex items-center">
+                  {/* Dep */}
+                  <div className="flex flex-col items-center w-14">
+                    <div className="text-sm font-bold text-slate-700 relative">
+                      {fl.dep}
+                    </div>
+                    <div className="text-[10px] font-bold text-slate-400">{fl.depAirport || "ORG"}</div>
+                  </div>
+
+                  {/* Arrow */}
+                  <div className="flex flex-col items-center w-12 text-slate-300">
+                    <ArrowRight size={12} />
+                  </div>
+
+                  {/* Arr */}
+                  <div className="flex flex-col items-center w-14">
+                    <div className="text-sm font-bold text-slate-700 relative">
+                      {fl.arr}
+                      {isNextDay && <span className="absolute text-[0.6em] text-indigo-500 font-bold ml-0.5 -mt-1.5">+1</span>}
+                    </div>
+                    <div className="text-[10px] font-bold text-slate-400">{fl.arrAirport || "DST"}</div>
+                  </div>
+
+                  {groundHTML}
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <button
+                  onClick={(e) => { e.stopPropagation(); deleteFlight(type, index); }}
+                  className="text-slate-300 hover:text-red-500 p-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                >
+                  <Trash2 size={14} />
+                </button>
+                <button className="text-slate-300 hover:text-indigo-600 p-2"><Edit3 size={14} /></button>
+              </div>
+            </div>
+          </div>
+          {layoverPill}
+        </div>
+      </div>
+    );
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
-        <div className="p-4 border-b flex justify-between items-center bg-gray-50 rounded-t-xl">
-          <h3 className="font-bold text-lg flex items-center gap-2">
-            <Edit3 size={18} /> {initialOption ? "Edit Strategy" : "Add New Strategy"}
+    <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-2xl flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white rounded-t-xl z-20">
+          <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
+            <Edit3 size={18} /> {initialOption ? "Edit Strategy" : "New Strategy"}
           </h3>
-          <button onClick={onClose}>
-            <X size={20} className="text-gray-400 hover:text-gray-600" />
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full text-slate-400 hover:text-slate-600 transition-colors">
+            <X size={20} />
           </button>
         </div>
 
-        <div className="p-4 overflow-y-auto flex-1 bg-gray-50/50 min-h-[400px]">
-          {/* Main Control Bar */}
+        {/* Editing Overlay (FlightForm) */}
+        <div className="flex-1 overflow-y-auto bg-slate-50 p-6 min-h-0">
+          {/* Strategy Selector */}
+          {/* ... content ... */}
+
           <div className="flex flex-col mb-6">
-            <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Strategy Type</label>
+            <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Strategy Type</label>
             <div className="flex items-center justify-start">
               <div className="inline-flex items-center gap-3 w-full">
-                {/* Main Input Group: Full width when Hub, otherwise inline */}
-                <div className={`flex rounded-lg shadow-sm border border-slate-300 bg-white overflow-visible focus-within:ring-2 focus-within:ring-indigo-500 focus-within:border-indigo-500 transition-all relative z-10 ${strategy === "hub" ? "w-full" : "inline-flex"}`}>
+                <div className={`flex rounded-lg shadow-sm border border-slate-300 bg-white overflow-visible transition-all relative z-10 ${strategy === "hub" ? "w-full" : "inline-flex"}`}>
                   <div className="flex divide-x divide-slate-200 shrink-0 rounded-l-lg">
                     <button
                       onClick={() => {
-                        if (isHubConfirmed && strategy === "hub") return;
                         setStrategy("direct");
                         setIsHubConfirmed(false);
                       }}
-                      disabled={isHubConfirmed && strategy === "hub"}
-                      className={`px-4 py-2.5 text-sm font-medium transition-colors ${strategy === "direct"
-                        ? "bg-indigo-50 text-indigo-700"
-                        : isHubConfirmed
-                          ? "text-slate-400 cursor-not-allowed bg-slate-50"
-                          : "text-slate-600 hover:bg-slate-100 bg-slate-50"
-                        } rounded-l-lg`}
+                      className={`px-4 py-2.5 text-sm font-bold transition-colors ${strategy === "direct" ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100 bg-white"} rounded-l-lg`}
                     >
                       Direct
                     </button>
                     <button
                       onClick={() => {
-                        if (isHubConfirmed && strategy === "hub") return;
                         setStrategy("hub");
-                        setIsHubConfirmed(false);
                       }}
-                      disabled={isHubConfirmed && strategy === "hub"}
-                      className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${strategy === "hub"
-                        ? "bg-indigo-50 text-indigo-700"
-                        : "text-slate-600 hover:bg-slate-100 bg-slate-50"
-                        } ${strategy === "direct" ? "rounded-r-lg" : ""}`}
+                      className={`px-4 py-2.5 text-sm font-bold transition-colors relative ${strategy === "hub" ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100 bg-white"} ${strategy === "direct" ? "rounded-r-lg" : ""}`}
                     >
                       Hub
-                      {strategy === "hub" && !isHubConfirmed && <div className="absolute top-2 right-2 w-1.5 h-1.5 bg-indigo-500 rounded-full"></div>}
                     </button>
                   </div>
 
-                  <div
-                    className={`flex items-center relative bg-white rounded-r-lg transition-all duration-300 ease-in-out ${strategy === "hub" ? "w-full opacity-100 overflow-visible" : "w-0 opacity-0 overflow-hidden"}`}
-                  >
-                    {strategy === "hub" && (
-                      <div className="flex items-center py-1 pr-2 pl-3 w-full" style={{ minWidth: "230px" }}>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-slate-400 text-sm">via</span>
-                          <input
-                            type="text"
-                            placeholder="CODE"
-                            className={`w-12 bg-transparent border-none p-0 text-slate-800 placeholder-slate-300 focus:ring-0 font-semibold uppercase outline-none ${isHubConfirmed ? "cursor-default" : ""}`}
-                            value={hub}
-                            readOnly={isHubConfirmed}
-                            onChange={(e) => handleHubChange(e.target.value.toUpperCase())}
-                            onKeyDown={(e) => e.key === 'Enter' && hub.length >= 3 && !isHubConfirmed && confirmHub()}
-                          />
-                        </div>
+                  {strategy === "hub" && (
+                    <div className="flex items-center py-1 pr-2 pl-3 w-full animate-in fade-in duration-300" style={{ minWidth: "230px" }}>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <span className="text-slate-400 text-sm font-mono">via</span>
+                        <input
+                          type="text"
+                          placeholder="HUB"
+                          className="w-12 bg-transparent border-none p-0 text-slate-800 placeholder-slate-300 focus:ring-0 font-bold font-mono text-lg uppercase outline-none"
+                          value={hub}
+                          onChange={(e) => handleHubChange(e.target.value.toUpperCase())}
+                          onBlur={() => confirmHub()}
+                          onKeyDown={(e) => e.key === 'Enter' && confirmHub()}
+                        />
+                      </div>
+                      <div className="flex-1"></div>
 
-                        <div className="flex-1"></div>
-
-                        {/* Recent Pills - Inline */}
-                        {!isHubConfirmed && recentHubs.length > 0 && (
-                          <div className="flex flex-wrap items-center gap-1.5 mr-3 overflow-hidden h-7">
-                            {recentHubs.slice(0, 3).map((h) => (
-                              <div
-                                key={h}
-                                onClick={() => {
-                                  confirmHub(h);
-                                }}
-                                className="group flex items-center bg-slate-100 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded-full px-2 py-0.5 text-[10px] font-bold cursor-pointer transition-colors border border-transparent hover:border-indigo-100">
-                                <span>{h}</span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    RecentAirports.remove(h);
-                                    setRecentHubs(prev => prev.filter(x => x !== h));
-                                  }}
-                                  className="ml-1 text-slate-400 hover:text-red-500 rounded-full p-0.5 transition-all"
-                                >
-                                  <X size={8} />
-                                </button>
-                              </div>
+                      {/* Recent Hubs Dropdown Trigger */}
+                      <div className="relative">
+                        <button onClick={() => setShowRecentDropdown(!showRecentDropdown)} className="text-slate-400 hover:text-indigo-600 p-1"><History size={14} /></button>
+                        {showRecentDropdown && (
+                          <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded shadow-xl border border-slate-100 p-2 z-50">
+                            <div className="text-[10px] text-slate-400 font-bold mb-1">RECENT</div>
+                            {recentHubs.map(h => (
+                              <button key={h} onClick={() => { setHub(h); confirmHub(h); setShowRecentDropdown(false); }} className="block w-full text-left px-2 py-1 text-sm text-slate-600 hover:bg-slate-50 rounded font-bold">{h}</button>
                             ))}
                           </div>
                         )}
-
-                        {/* Dropdown Trigger */}
-                        {!isHubConfirmed && (
-                          <div className="relative ml-auto">
-                            <button
-                              onClick={() => setShowRecentDropdown(!showRecentDropdown)}
-                              className="flex items-center gap-1 text-xs font-medium text-slate-500 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 px-2 py-1 rounded transition-colors whitespace-nowrap"
-                            >
-                              <History size={12} />
-                              <ChevronDown size={12} className="ml-0.5" />
-                            </button>
-
-                            {/* The Dropdown */}
-                            {showRecentDropdown && (
-                              <div className="absolute right-0 top-full mt-2 w-64 bg-white rounded-lg shadow-xl border border-slate-100 z-50 p-2 text-left">
-                                <div className="text-[10px] text-slate-400 uppercase font-bold px-2 py-1 mb-1">Recent Hubs</div>
-                                {recentHubs.length > 0 ? (
-                                  <div className="grid grid-cols-4 gap-1">
-                                    {recentHubs.slice(0, 12).map(h => (
-                                      <button
-                                        key={h}
-                                        onClick={() => {
-                                          setHub(h);
-                                          setShowRecentDropdown(false);
-                                        }}
-                                        className="px-2 py-1.5 bg-slate-50 hover:bg-indigo-50 text-slate-600 hover:text-indigo-600 rounded text-xs font-medium transition-colors"
-                                      >
-                                        {h}
-                                      </button>
-                                    ))}
-                                  </div>
-                                ) : (
-                                  <div className="text-xs text-slate-400 px-2 italic">No recent hubs</div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
-
-                {/* External Action Button (Check or Pencil) - Only for Hub */}
-                {strategy === "hub" && (
-                  <button
-                    onClick={() => {
-                      if (isHubConfirmed) {
-                        setIsHubConfirmed(false); // Unlock
-                      } else {
-                        confirmHub();
-                      }
-                    }}
-                    className={`shrink-0 w-10 h-10 flex items-center justify-center rounded-full transition-colors shadow-sm ${isHubConfirmed
-                      ? "bg-white text-slate-400 hover:text-indigo-600 border border-slate-200 hover:border-indigo-200"
-                      : (!hub || hub.length < 3)
-                        ? "bg-gray-100 text-gray-300 cursor-not-allowed"
-                        : "bg-green-100 text-green-600 hover:bg-green-200 hover:text-green-700"
-                      }`}
-                    disabled={!isHubConfirmed && (!hub || hub.length < 3)}
-                    title={isHubConfirmed ? "Edit Hub" : "Confirm Hub"}
-                  >
-                    {isHubConfirmed ? <Edit3 size={16} /> : <Check size={20} />}
-                  </button>
-                )}
               </div>
             </div>
           </div>
 
-          <div className="mt-4">
-            {strategy === "direct" ? (
-              <div className="space-y-4 animate-in slide-in-from-bottom-2 fade-in duration-300">
-                {segments.map((seg, i) => (
-                  <FlightInput
-                    key={i}
-                    id={i}
-                    value={seg}
-                    onChange={(val) => {
-                      const n = [...segments];
-                      n[i] = val;
-                      setSegments(n);
-                    }}
-                    showRemove={segments.length > 1}
-                    onRemove={() => {
-                      const n = segments.filter((_, idx) => idx !== i);
-                      setSegments(n);
-                    }}
-                    onMoveUp={() => setSegments(moveItem(segments, i, i - 1))}
-                    onMoveDown={() => setSegments(moveItem(segments, i, i + 1))}
-                    isFirst={i === 0}
-                    isLast={i === segments.length - 1}
-                    config={config}
-                    dateContext={dateContext}
-                    isGuest={isGuest}
-                  />
-                ))}
-                <button
-                  onClick={() => setSegments([...segments, { flight: "", dep: "", arr: "", status: "" }])}
-                  className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-gray-400 font-bold hover:border-indigo-400 hover:text-indigo-500 transition-colors"
-                >
-                  + Add Connecting Leg
-                </button>
+          {/* FLIGHT LISTS */}
+          <div className="space-y-6">
+            {strategy === 'direct' ? (
+              <div>
+                <div className="flex justify-between items-end mb-2">
+                  <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                    <Plane size={12} className="text-emerald-500" /> Direct Segments
+                  </label>
+                  <button onClick={() => setEditingState({ type: 'direct', index: -1 })} className="text-xs text-emerald-600 font-bold bg-emerald-50 px-2 py-1.5 rounded hover:bg-emerald-100 transition-colors flex items-center gap-1">
+                    <Plus size={12} /> Add Leg
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {segments.map((seg, i) => renderFlightCard(seg, i, 'direct'))}
+                  {segments.length === 0 && (
+                    <div onClick={() => setEditingState({ type: 'direct', index: -1 })} className="border-2 border-dashed border-slate-200 rounded-lg p-6 flex flex-col items-center justify-center text-slate-400 cursor-pointer hover:border-emerald-300 hover:text-emerald-600 transition-all">
+                      <Plus size={24} className="mb-2" />
+                      <span className="text-xs font-bold">Add Flight Segment</span>
+                    </div>
+                  )}
+                </div>
               </div>
             ) : (
               <>
-                {!isHubConfirmed && (
-                  <div className="flex flex-col items-center justify-center py-12 px-4 text-center  rounded-xl bg-slate-50/50">
-                    <div className="w-12 h-12 bg-white rounded-full shadow-sm flex items-center justify-center mb-3">
-                      <Plane className="text-indigo-500 rotate-45" size={24} />
-                    </div>
-                    <h3 className="text-sm font-bold text-slate-700 mb-1">Set Connection Hub</h3>
-                    <p className="text-xs text-slate-500 max-w-[200px]">
-                      Enter a 3-letter airport code above to configure your inbound and outbound flights.
-                    </p>
+                {(!hub || hub.length < 3) ? (
+                  <div className="text-center py-12 opacity-50">
+                    <div className="inline-block p-4 bg-slate-100 rounded-full mb-3"><Plane size={24} className="text-slate-400" /></div>
+                    <div className="font-bold text-slate-500">Select a Hub Airport</div>
+                    <div className="text-xs text-slate-400">Enter a 3-letter code above to begin</div>
                   </div>
-                )}
-                {isHubConfirmed && (
-                  <div className="animate-in slide-in-from-bottom-2 fade-in duration-300">
-                    <HubStrategyInputs
-                      inbounds={inbounds}
-                      setInbounds={setInbounds}
-                      outbounds={outbounds}
-                      setOutbounds={setOutbounds}
-                      hub={hub}
-                      config={config}
-                      dateContext={dateContext}
-                      isGuest={isGuest}
-                    />
+                ) : (
+                  <div className="space-y-6 animate-in fade-in duration-300">
+                    {/* Inbound */}
+                    <div>
+                      <div className="flex justify-between items-end mb-2">
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                          <PlaneLanding size={12} className="text-blue-500" /> Inbound • To {hub}
+                        </label>
+                        <button onClick={() => setEditingState({ type: 'inbound', index: -1 })} className="text-xs text-blue-600 font-bold bg-blue-50 px-2 py-1.5 rounded hover:bg-blue-100 transition-colors flex items-center gap-1">
+                          <Plus size={12} /> Add
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {inbounds.map((seg, i) => renderFlightCard(seg, i, 'inbound'))}
+                        {inbounds.length === 0 && (
+                          <div onClick={() => setEditingState({ type: 'inbound', index: -1 })} className="border-2 border-dashed border-slate-200 rounded-lg p-4 flex items-center justify-center text-slate-400 cursor-pointer hover:border-blue-300 hover:text-blue-600 transition-all">
+                            <span className="text-xs font-bold flex items-center gap-1"><Plus size={12} /> Add Inbound Flight</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Outbound */}
+                    <div>
+                      <div className="flex justify-between items-end mb-2">
+                        <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-2">
+                          <PlaneTakeoff size={12} className="text-indigo-500" /> Outbound • From {hub}
+                        </label>
+                        <button onClick={() => setEditingState({ type: 'outbound', index: -1 })} className="text-xs text-indigo-600 font-bold bg-indigo-50 px-2 py-1.5 rounded hover:bg-indigo-100 transition-colors flex items-center gap-1">
+                          <Plus size={12} /> Add
+                        </button>
+                      </div>
+                      <div className="space-y-3">
+                        {outbounds.map((seg, i) => renderFlightCard(seg, i, 'outbound'))}
+                        {outbounds.length === 0 && (
+                          <div onClick={() => setEditingState({ type: 'outbound', index: -1 })} className="border-2 border-dashed border-slate-200 rounded-lg p-4 flex items-center justify-center text-slate-400 cursor-pointer hover:border-indigo-300 hover:text-indigo-600 transition-all">
+                            <span className="text-xs font-bold flex items-center gap-1"><Plus size={12} /> Add Outbound Flight</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 )}
               </>
@@ -405,19 +437,55 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
           </div>
         </div>
 
-        <div className="p-4 border-t bg-white rounded-b-xl flex justify-end gap-2">
-          <button onClick={onClose} className="px-5 py-2 text-gray-500 font-bold hover:bg-gray-100 rounded">
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            className="px-6 py-2 bg-indigo-600 text-white font-bold rounded hover:bg-indigo-700 shadow-lg transition-transform active:scale-95"
-          >
-            Save Strategy
-          </button>
-        </div>
+        {/* Footer */}
+        {!editingState && (
+          <div className="p-4 border-t bg-white rounded-b-xl flex justify-end gap-2 shrink-0 z-20">
+            <button onClick={onClose} className="px-5 py-2 text-slate-500 font-bold hover:bg-slate-100 rounded-xl transition-colors">
+              Cancel
+            </button>
+            <button
+              onClick={handleFinalSave}
+              className="px-6 py-2 bg-slate-800 text-white font-bold rounded-xl hover:bg-slate-700 shadow-lg transition-transform active:scale-95"
+            >
+              Save Strategy
+            </button>
+          </div>
+        )}
       </div>
-    </div>
+
+
+      {/* FlightForm Modal Layer (Stacked) */}
+      {
+        editingState && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/20 backdrop-blur-[1px] animate-in fade-in duration-200">
+            <div className="bg-white rounded-xl shadow-2xl border border-slate-200 w-full max-w-lg flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200">
+              <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+                <h4 className="font-bold text-sm text-slate-500 uppercase flex items-center gap-2">
+                  {editingState.index === -1 ? <Plus size={16} /> : <Edit3 size={16} />}
+                  {editingState.index === -1 ? 'Add' : 'Edit'} {editingState.type} Flight
+                </h4>
+                <button onClick={() => setEditingState(null)} className="text-slate-400 hover:text-red-500 transition-colors"><X size={20} /></button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <FlightForm
+                  initialSegment={
+                    editingState.index !== -1
+                      ? (editingState.type === 'direct' ? segments[editingState.index] : (editingState.type === 'inbound' ? inbounds[editingState.index] : outbounds[editingState.index])) || null
+                      : null
+                  }
+                  onSave={saveFlight}
+                  onCancel={() => setEditingState(null)}
+                  type={editingState.type}
+                  baseDate={dateContext}
+                  hubAirport={hub}
+                  config={config}
+                />
+              </div>
+            </div>
+          </div>
+        )
+      }
+    </div >
   );
 };
 

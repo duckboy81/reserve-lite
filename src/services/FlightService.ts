@@ -76,7 +76,46 @@ export const FlightService = {
   },
   searchFlights: async (from: string, to: string, date: string): Promise<{ flights: SearchResult[] }> => {
     const token = AuthService.getToken();
-    if (!token) throw new Error("Not authenticated");
+
+    // Mock Data Fallback for Dev/Guest
+    if (!token || AuthService.isGuest()) {
+      console.log("Returning mock flight results for", from, to, date);
+      return {
+        flights: [
+          {
+            legs: [{
+              carrierCodeIATA: "DL",
+              aircraftIdentification: { flightNumber: "123" },
+              departureAirportCode: from,
+              arrivalAirportCode: to,
+              departure: { scheduledDate: `${date}T08:00:00`, gate: "A12" },
+              arrival: { scheduledDate: `${date}T10:30:00`, gate: "C4" }
+            }]
+          },
+          {
+            legs: [{
+              carrierCodeIATA: "UA",
+              aircraftIdentification: { flightNumber: "456" },
+              departureAirportCode: from,
+              arrivalAirportCode: to,
+              departure: { scheduledDate: `${date}T14:00:00`, gate: "B7" },
+              arrival: { scheduledDate: `${date}T16:45:00`, gate: "D2" }
+            }]
+          },
+          {
+            legs: [{
+              carrierCodeIATA: "AA",
+              aircraftIdentification: { flightNumber: "789" },
+              departureAirportCode: from,
+              arrivalAirportCode: to,
+              departure: { scheduledDate: `${date}T18:30:00`, gate: "C10" },
+              arrival: { scheduledDate: `${date}T21:15:00`, gate: "A5" }
+            }]
+          }
+        ]
+      };
+    }
+
     const payload = {
       departureLocation: { code: from, latitude: 0, longitude: 0, isCity: false },
       arrivalLocation: { code: to, latitude: 0, longitude: 0, isCity: false },
