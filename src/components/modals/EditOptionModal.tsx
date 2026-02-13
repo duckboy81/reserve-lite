@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Edit3, X, History, ChevronDown, Check, Plane, ArrowRight, PlaneTakeoff, PlaneLanding, Plus, Trash2, Car } from "lucide-react";
+import { Edit3, X, History, Plane, ArrowRight, PlaneTakeoff, PlaneLanding, Plus, Trash2, Car } from "lucide-react";
 import FlightForm from "./FlightForm";
 import { RecentAirports } from "../../services/StorageService";
 import { Option, Config, FlightSegment } from "../../types";
@@ -48,13 +48,13 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
   initialOption,
   dateContext,
   config,
-  isGuest = false,
+  // isGuest = false,
   activeBlockBase,
   currentAirport,
 }) => {
   // Main State
   const [strategy, setStrategy] = useState<"direct" | "hub">("direct");
-  const [isHubConfirmed, setIsHubConfirmed] = useState(false);
+  // const [isHubConfirmed, setIsHubConfirmed] = useState(false); // Unused
   const [hub, setHub] = useState("");
   const [recentHubs, setRecentHubs] = useState<string[]>([]);
   const [showRecentDropdown, setShowRecentDropdown] = useState(false);
@@ -82,7 +82,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
         setStrategy("hub");
         const currentHub = initialOption.hub || "";
         setHub(currentHub);
-        setIsHubConfirmed(!!currentHub);
+
         setInbounds(initialOption.inbound || []);
         setOutbounds(initialOption.outbound || []);
         setSegments([]);
@@ -90,7 +90,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
         setStrategy("direct");
         setSegments(initialOption.segments || []);
         setHub("");
-        setIsHubConfirmed(false);
+
         setInbounds([]);
         setOutbounds([]);
       }
@@ -98,7 +98,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
       // New Entry
       setStrategy("direct");
       setHub("");
-      setIsHubConfirmed(false);
+
       setSegments([]);
       setInbounds([]);
       setOutbounds([]);
@@ -115,7 +115,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
 
     setHub(hubToSet);
     RecentAirports.add(hubToSet.toUpperCase());
-    setIsHubConfirmed(true);
+
   };
 
   const saveFlight = (segment: FlightSegment) => {
@@ -156,7 +156,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
 
     if (strategy === "direct") {
       if (segments.length === 0) return; // TODO: Show error?
-      const last = segments[segments.length - 1];
+      const last = segments[segments.length - 1]!;
       finalOpt = {
         type: "direct",
         segments: segments,
@@ -166,7 +166,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
       if (inbounds.length === 0 && outbounds.length === 0) return;
 
       const flaggedOut = outbounds.map((o, i) => ({ ...o, isPrimary: i === 0, isSecondary: i > 0 }));
-      const hubLabel = hub || (inbounds.length > 0 ? inbounds[0].arrAirport : "HUB");
+      const hubLabel = hub || (inbounds.length > 0 ? inbounds[0]!.arrAirport : "HUB");
 
       finalOpt = {
         type: "hub-strategy",
@@ -180,7 +180,6 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
 
   // Render Functions
   const renderFlightCard = (fl: FlightSegment, index: number, type: 'inbound' | 'outbound' | 'direct') => {
-    const isStandard = false; // Logic to hide route if standard? 
     // Superscript logic: simplistic for now (if arr time < dep time, assume +1)
     const isNextDay = fl.arr < fl.dep;
 
@@ -308,7 +307,7 @@ const EditOptionModal: React.FC<EditOptionModalProps> = ({
                     <button
                       onClick={() => {
                         setStrategy("direct");
-                        setIsHubConfirmed(false);
+
                       }}
                       className={`px-4 py-2.5 text-sm font-bold transition-colors ${strategy === "direct" ? "bg-indigo-50 text-indigo-700" : "text-slate-600 hover:bg-slate-100 bg-white"} rounded-l-lg`}
                     >
