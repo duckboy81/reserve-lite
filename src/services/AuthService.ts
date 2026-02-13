@@ -1,7 +1,19 @@
 import { API_CONFIG } from "../config/constants";
 
 export const AuthService = {
-  login: async (alpaId: string, password: string) => {
+  login: async (alpaId?: string, password?: string) => {
+    try {
+      alpaId ??= localStorage.getItem("saved_id") ?? undefined;
+      password ??= localStorage.getItem("saved_pass") ?? undefined;
+    } catch (error) {
+      console.error("Failed to read saved credentials", error);
+    } finally {
+      if (alpaId === undefined || password === undefined) {
+        // noinspection ThrowInsideFinallyBlockJS
+        throw new Error("No saved credentials found. Please login again.");
+      }
+    }
+
     try {
       const response = await fetch(API_CONFIG.AUTH_URL, {
         method: "POST",
@@ -25,15 +37,28 @@ export const AuthService = {
       throw error;
     }
   },
-  getToken: (): string | null => {
+  getToken: async (): Promise<string | null> => {
     const stored = localStorage.getItem("alpa_auth");
-    if (!stored) return null;
-    const data = JSON.parse(stored);
-    if (Date.now() > data.expiresAt) {
-      localStorage.removeItem("alpa_auth");
-      return null;
+    if (stored) {
+      const data = JSON.parse(stored);
+      if (Date.now() < data.expiresAt) {
+        return data.token;
+      }
     }
-    return data.token;
+
+    // Attempt silent refresh
+    try {
+      console.log("Token expired or missing, attempting silent refresh...");
+      const tokenData = await AuthService.login();
+      if (tokenData) {
+        return tokenData.token;
+      }
+    } catch (e) {
+      console.error("Silent refresh failed", e);
+    }
+
+    localStorage.removeItem("alpa_auth");
+    return null;
   },
   logout: () => {
     localStorage.removeItem("alpa_auth");
@@ -50,8 +75,8 @@ export const AuthService = {
   isGuest: (): boolean => {
     return localStorage.getItem("guest_mode") === "true";
   },
-  isAuthenticated: (): boolean => {
-    const token = AuthService.getToken();
+  isAuthenticated: async (): Promise<boolean> => {
+    const token = await AuthService.getToken();
     const guest = AuthService.isGuest();
     return !!token || guest;
   },

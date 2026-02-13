@@ -22,7 +22,22 @@ interface HeaderProps {
   user: User | null;
   executeGuestLogin: () => void;
   onSave: () => void;
+  isFlightError?: boolean;
+  flightError?: Error | null;
+  lastFlightUpdate?: number;
 }
+
+// Helper for relative time
+const getRelativeTime = (timestamp: number) => {
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins === 1) return "1m ago";
+  if (mins < 60) return `${mins}m ago`;
+  const hours = Math.floor(mins / 60);
+  if (hours === 1) return "1h ago";
+  return `${hours}h ago`;
+};
 
 export default function Header({
   isEditMode,
@@ -42,6 +57,9 @@ export default function Header({
   user,
   executeGuestLogin,
   onSave,
+  isFlightError,
+  flightError,
+  lastFlightUpdate,
 }: HeaderProps) {
   const {
     executeDiscard,
@@ -122,20 +140,36 @@ export default function Header({
                   <Edit3 size={14} /> Edit Plan
                 </button>
                 <div className="h-4 w-px bg-gray-300 mx-1"></div>
-                <div className="relative group/tooltip">
-                  <button
-                    onClick={() => {
-                      if (user?.id !== "GUEST") handleGlobalRefresh();
-                    }}
-                    className={`p-2 rounded-full hover:bg-gray-100 text-gray-500 ${loading ? "animate-spin text-yellow-600" : ""} ${user?.id === "GUEST" ? "opacity-50 cursor-not-allowed" : ""}`}
-                    title={user?.id === "GUEST" ? "" : "Refresh All Flights"}
-                  >
-                    <RefreshCw size={16} />
-                  </button>
-                  {user?.id === "GUEST" && (
-                    <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-sm opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
-                      Sign in to use flight search
-                    </span>
+                <div className="relative flex flex-col items-center">
+                  <div className="relative group/tooltip">
+                    <button
+                      onClick={() => {
+                        if (user?.id !== "GUEST") handleGlobalRefresh();
+                      }}
+                      className={`p-2 rounded-full hover:bg-gray-100 text-gray-500
+                        ${loading ? "animate-spin text-yellow-600" : ""}
+                        ${user?.id === "GUEST" ? "opacity-50 cursor-not-allowed" : ""}
+                        ${isFlightError ? "text-red-500 hover:bg-red-50" : ""}`}
+                      title={user?.id === "GUEST" || isFlightError ? "" : "Refresh All Flights"}
+                    >
+                      <RefreshCw size={16} />
+                    </button>
+                    {isFlightError && (
+                      <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-max px-2 py-1 bg-red-600 text-white text-[10px] rounded shadow-sm opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+                        Failed: {flightError?.message || "Unknown Error"}
+                      </span>
+                    )}
+                    {user?.id === "GUEST" && (
+                      <span className="absolute top-full left-1/2 -translate-x-1/2 mt-1 w-max px-2 py-1 bg-gray-800 text-white text-[10px] rounded shadow-sm opacity-0 group-hover/tooltip:opacity-100 transition-opacity pointer-events-none z-50">
+                        Sign in to use flight search
+                      </span>
+                    )}
+                  </div>
+                  {/* Timestamp Display */}
+                  {!loading && !!lastFlightUpdate && lastFlightUpdate > 0 && (
+                    <div className={`absolute bottom-0 -mb-[10px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-bold ${isFlightError ? "text-red-400" : "text-gray-300"}`}>
+                      {getRelativeTime(lastFlightUpdate)}
+                    </div>
                   )}
                 </div>
                 <button

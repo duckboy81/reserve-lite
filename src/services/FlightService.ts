@@ -47,7 +47,7 @@ export const FlightService = {
     flightsToFetch: FlightSegment[],
     dateStr: string,
   ): Promise<{ legs: FlightStatus[] }[] | null> => {
-    const token = AuthService.getToken();
+    const token = await AuthService.getToken();
     if (!token) return null;
     const validPayloads = flightsToFetch
       .map((f) => FlightService.buildInfoPayload(f, dateStr || "2026-01-29"))
@@ -59,7 +59,9 @@ export const FlightService = {
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(validPayloads),
       });
-      if (!response.ok) return null;
+      if (!response.ok) {
+        throw new Error(`${response.status ? `${response.status} - ` : ""}${response.statusText ?? "Unknown"}`);
+      }
       const data = await response.json();
       // Inject timestamp
       const now = Date.now();
@@ -71,10 +73,15 @@ export const FlightService = {
       }
       return data;
     } catch (e) {
-      return null;
+      console.error("Flight status fetch error", e);
+      throw e; // Propagate error for UI handling
     }
   },
-  getCachedSearchResults: async (from: string, to: string, date: string): Promise<{ flights: SearchResult[], retrievedAt: number } | null> => {
+  getCachedSearchResults: async (
+    from: string,
+    to: string,
+    date: string,
+  ): Promise<{ flights: SearchResult[]; retrievedAt: number } | null> => {
     try {
       const cachedItem = await db.searchResults.get([from, to, date]);
       if (cachedItem && Date.now() - cachedItem.timestamp < API_CONFIG.CACHE_DURATION_MS) {
@@ -93,13 +100,18 @@ export const FlightService = {
         to,
         date,
         timestamp: Date.now(),
-        flights
+        flights,
       });
     } catch (e) {
       console.error("Search cache write error", e);
     }
   },
-  searchFlights: async (from: string, to: string, date: string, forceRefresh = false): Promise<{ flights: SearchResult[], retrievedAt: number }> => {
+  searchFlights: async (
+    from: string,
+    to: string,
+    date: string,
+    forceRefresh = false,
+  ): Promise<{ flights: SearchResult[]; retrievedAt: number }> => {
     // 1. Check Cache if not forcing refresh
     if (!forceRefresh) {
       const cached = await FlightService.getCachedSearchResults(from, to, date);
@@ -109,7 +121,7 @@ export const FlightService = {
       }
     }
 
-    const token = AuthService.getToken();
+    const token = await AuthService.getToken();
     const now = Date.now();
 
     // Mock Data Fallback REMOVED.

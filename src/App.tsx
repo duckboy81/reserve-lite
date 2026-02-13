@@ -88,7 +88,13 @@ export default function App() {
   // Decide which data is "Active" (Server vs Staging)
   const activeData = isEditMode && stagingData ? stagingData : scheduleData;
 
-  const { data: flightStatuses = {}, isFetching: isFlightFetching } = useFlightStatusQuery(activeData);
+  const {
+    data: flightStatuses = {},
+    isFetching: isFlightFetching,
+    isError: isFlightError,
+    error: flightError,
+    dataUpdatedAt: flightUpdatedAt
+  } = useFlightStatusQuery(activeData);
   const { saveMutation } = useScheduleMutations();
 
   const isOnline = useNetworkStatus();
@@ -258,6 +264,9 @@ export default function App() {
         user={user}
         executeGuestLogin={handleGuestLogin}
         onSave={handleCommit}
+        isFlightError={isFlightError}
+        flightError={flightError}
+        lastFlightUpdate={flightUpdatedAt}
       />
 
       <main

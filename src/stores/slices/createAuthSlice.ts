@@ -16,8 +16,8 @@ export const createAuthSlice: StateCreator<AuthSlice> = (set) => ({
         AuthService.logout();
         set({ user: null });
     },
-    initializeAuth: () => {
-        const token = AuthService.getToken();
+    initializeAuth: async () => {
+        const token = await AuthService.getToken();
         if (!token) return;
 
         const authStr = localStorage.getItem("alpa_auth");

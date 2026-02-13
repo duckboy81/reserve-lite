@@ -3,56 +3,59 @@ import { FlightService } from "../../services/FlightService";
 import { AuthService } from "../../services/AuthService";
 import { RowData, FlightSegment } from "../../types";
 
-// Helper to extract flight keys
-const extractFlightKeys = (scheduleData: Record<string, RowData[]> | undefined) => {
+// Helper to extract flight details including departure time
+const extractUniqueFlights = (scheduleData: Record<string, RowData[]> | undefined) => {
     if (!scheduleData) return [];
-    const flightNumbers: string[] = [];
+    const uniqueFlights = new Map<string, { flight: string; dep: string }>();
+
+    const processSegments = (segments: FlightSegment[] | undefined) => {
+        if (!segments) return;
+        for (const s of segments) {
+            // Use a composite key to ensure uniqueness of flight + departure time
+            const key = `${s.flight}-${s.dep}`;
+            if (!uniqueFlights.has(key)) {
+                uniqueFlights.set(key, { flight: s.flight, dep: s.dep });
+            }
+        }
+    };
 
     for (const rows of Object.values(scheduleData)) {
         for (const row of rows) {
             for (const opt of row.options) {
-                if (opt.segments) {
-                    for (const s of opt.segments) {
-                        flightNumbers.push(s.flight);
-                    }
-                }
-                if (opt.inbound) {
-                    const inbound = Array.isArray(opt.inbound) ? opt.inbound : [opt.inbound];
-                    for (const s of inbound) {
-                        flightNumbers.push(s.flight);
-                    }
-                }
-                if (opt.outbound) {
-                    for (const s of opt.outbound) {
-                        flightNumbers.push(s.flight);
-                    }
-                }
+                processSegments(opt.segments);
+                processSegments(Array.isArray(opt.inbound) ? opt.inbound : opt.inbound ? [opt.inbound] : []);
+                processSegments(opt.outbound);
             }
         }
     }
 
-    return [...new Set(flightNumbers)];
+    return Array.from(uniqueFlights.values());
 };
 
 export function useFlightStatusQuery(scheduleData: Record<string, RowData[]> | undefined) {
+    const flightDetails = extractUniqueFlights(scheduleData);
+
+    // Sort for stable query key
+    const stableKey = JSON.stringify(
+        flightDetails.sort((a, b) => a.flight.localeCompare(b.flight) || a.dep.localeCompare(b.dep))
+    );
 
     return useQuery({
-        queryKey: ["flightStatus", extractFlightKeys(scheduleData).sort().join(",")],
+        queryKey: ["flightStatus", stableKey],
         queryFn: async () => {
             if (AuthService.isGuest()) return {};
-
-            const flightKeys = extractFlightKeys(scheduleData);
-            if (flightKeys.length === 0) return {};
+            if (flightDetails.length === 0) return {};
 
             const statuses: Record<string, any> = {};
             const toFetch: FlightSegment[] = [];
 
-            for (const fNum of flightKeys) {
-                const cached = await FlightService.getCachedStatus(fNum);
+            for (const { flight, dep } of flightDetails) {
+                const cached = await FlightService.getCachedStatus(flight);
                 if (cached) {
-                    statuses[fNum] = cached;
+                    statuses[flight] = cached;
                 } else {
-                    toFetch.push({ flight: fNum, dep: "", arr: "", status: "" } as FlightSegment);
+                    // Include the departure time so the FlightService constructs the correct date
+                    toFetch.push({ flight, dep, arr: "", status: "" } as FlightSegment);
                 }
             }
 
@@ -83,5 +86,7 @@ export function useFlightStatusQuery(scheduleData: Record<string, RowData[]> | u
         },
         enabled: !AuthService.isGuest() && !!scheduleData,
         staleTime: 1000 * 60 * 10, // 10 mins
+        retry: 2,
+        refetchInterval: 1000 * 60 * 30, // 30 minutes
     });
 }
