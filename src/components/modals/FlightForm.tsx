@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Search, PenTool, ArrowRight, Calendar, Car, Loader2 } from "lucide-react";
+import { Search, PenTool, ArrowRight, Calendar, Car, Loader2, AlertCircle } from "lucide-react";
 import { FlightService } from "../../services/FlightService";
 import { AuthService } from "../../services/AuthService";
 
@@ -61,6 +61,12 @@ const FlightForm: React.FC<FlightFormProps> = ({
     durationH: "",
     durationM: "",
   });
+
+  // Validation State
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [shake, setShake] = useState(false);
+  const [activeTooltip, setActiveTooltip] = useState<string | null>(null);
+
 
   // Initialize Data
   useEffect(() => {
@@ -172,8 +178,8 @@ const FlightForm: React.FC<FlightFormProps> = ({
 
     const newForm = {
       flight: `${leg.carrierCodeIATA}${leg.aircraftIdentification.flightNumber}`,
-      org: leg.departureAirportCode,
-      dst: leg.arrivalAirportCode,
+      org: leg.departure.airportCode,
+      dst: leg.arrival.airportCode,
       depGate: leg.departure.gate || "",
       arrGate: leg.arrival.gate || "",
       dep: depDate.substring(0, 16),
@@ -184,8 +190,8 @@ const FlightForm: React.FC<FlightFormProps> = ({
     setMode("manual");
 
     // Auto-detect ground
-    if (type === "inbound" && leg.arrivalAirportCode !== hubAirport) {
-      checkGroundLogic(leg.arrivalAirportCode);
+    if (type === "inbound" && leg.arrival.airportCode !== hubAirport) {
+      checkGroundLogic(leg.arrival.airportCode);
     }
   };
 
@@ -228,7 +234,30 @@ const FlightForm: React.FC<FlightFormProps> = ({
 
   const handleSave = () => {
     // Validate
-    if (!formData.flight || !formData.dep || !formData.arr) return;
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.flight) newErrors["flight"] = "Flight number is required";
+    if (!formData.org) newErrors["org"] = "Origin is required";
+    if (!formData.dst) newErrors["dst"] = "Destination is required";
+    if (!formData.dep) newErrors["dep"] = "Departure time is required";
+    if (!formData.arr) newErrors["arr"] = "Arrival time is required";
+
+    if (formData.org && formData.dst && formData.org === formData.dst) {
+      newErrors["org"] = "Origin cannot be same as Destination";
+      newErrors["dst"] = "Destination cannot be same as Origin";
+    }
+
+    if (formData.dep && formData.arr && formData.dep > formData.arr) {
+      newErrors["dep"] = "Departure must be before Arrival";
+      newErrors["arr"] = "Arrival must be after Departure";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      setShake(true);
+      setTimeout(() => setShake(false), 500); // Reset shake after animation
+      return;
+    }
 
     // Convert ISO dates back to HH:mm for legacy Segment type
     // And check for date crossing logic to maybe set 'status' or metadata?
@@ -259,6 +288,23 @@ const FlightForm: React.FC<FlightFormProps> = ({
     }
 
     onSave(segment);
+  };
+
+  const getErrorClass = (field: string) => {
+    return errors[field]
+      ? "border-red-300 bg-red-50 text-red-900 focus:ring-red-200"
+      : "border-slate-200 focus:ring-indigo-600";
+  };
+
+  const Tooltip = ({ field }: { field: string }) => {
+    if (activeTooltip !== field || !errors[field]) return null;
+    return (
+      <div className="absolute bottom-full left-0 mb-2 px-3 py-1.5 bg-red-600 text-white text-xs font-bold rounded shadow-lg z-50 whitespace-nowrap flex items-center gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-200">
+        <AlertCircle className="w-3 h-3 text-white/90" />
+        {errors[field]}
+        <div className="absolute top-full left-4 -mt-1 border-4 border-transparent border-t-red-600"></div>
+      </div>
+    );
   };
 
   return (
@@ -445,47 +491,65 @@ const FlightForm: React.FC<FlightFormProps> = ({
         ) : (
           <div className="space-y-4">
             {/* DETAILS FORM */}
-            <div>
+            <div className="relative">
               <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                Flight Number
+                Flight Number <span className="text-red-500">*</span>
               </label>
+              <Tooltip field="flight" />
               <input
                 type="text"
-                className="w-full border rounded-lg p-2 text-sm font-bold uppercase font-mono focus:ring-2 focus:ring-indigo-600 outline-none border-slate-200"
+                className={`w-full border rounded-lg p-2 text-sm font-bold uppercase font-mono outline-none focus:ring-2 ${getErrorClass("flight")}`}
                 placeholder="DL123"
                 maxLength={6}
                 value={formData.flight}
-                onChange={(e) => setFormData({ ...formData, flight: e.target.value.toUpperCase() })}
+                onChange={(e) => {
+                  setFormData({ ...formData, flight: e.target.value.toUpperCase() });
+                  if (errors["flight"]) setErrors({ ...errors, flight: "" });
+                }}
+                onFocus={() => setActiveTooltip("flight")}
+                onBlur={() => setActiveTooltip(null)}
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-              <div>
+              <div className="relative">
                 <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                  Origin
+                  Origin <span className="text-red-500">*</span>
                 </label>
+                <Tooltip field="org" />
                 <input
                   type="text"
-                  className="w-full border rounded-lg p-2 text-sm font-bold uppercase focus:ring-2 focus:ring-indigo-600 outline-none border-slate-200"
+                  className={`w-full border rounded-lg p-2 text-sm font-bold uppercase outline-none focus:ring-2 ${getErrorClass("org")}`}
                   placeholder="ATL"
                   maxLength={3}
                   value={formData.org}
-                  onChange={(e) => setFormData({ ...formData, org: e.target.value.toUpperCase() })}
+                  onChange={(e) => {
+                    setFormData({ ...formData, org: e.target.value.toUpperCase() });
+                    if (errors["org"]) setErrors({ ...errors, org: "" });
+                  }}
+                  onFocus={() => setActiveTooltip("org")}
+                  onBlur={() => setActiveTooltip(null)}
                 />
               </div>
-              <div>
-                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Dest</label>
+              <div className="relative">
+                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                  Dest <span className="text-red-500">*</span>
+                </label>
+                <Tooltip field="dst" />
                 <input
                   type="text"
-                  className="w-full border rounded-lg p-2 text-sm font-bold uppercase focus:ring-2 focus:ring-indigo-600 outline-none border-slate-200"
+                  className={`w-full border rounded-lg p-2 text-sm font-bold uppercase outline-none focus:ring-2 ${getErrorClass("dst")}`}
                   placeholder="LAX"
                   maxLength={3}
                   value={formData.dst}
                   onChange={(e) => {
                     const val = e.target.value.toUpperCase();
                     setFormData({ ...formData, dst: val });
+                    if (errors["dst"]) setErrors({ ...errors, dst: "" });
                     if (val.length === 3) checkGroundLogic(val);
                   }}
+                  onFocus={() => setActiveTooltip("dst")}
+                  onBlur={() => setActiveTooltip(null)}
                 />
               </div>
             </div>
@@ -520,49 +584,67 @@ const FlightForm: React.FC<FlightFormProps> = ({
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                    Departure
-                  </label>
-                  <div className="relative group text-left">
-                    <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                      <Calendar className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+              <div className="grid grid-cols-1 gap-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Departure <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative group text-left">
+                      <Tooltip field="dep" />
+                      <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                        <Calendar className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                      </div>
+                      <input
+                        type="text"
+                        className={`w-full border rounded-lg p-2 text-sm outline-none focus:ring-2 ${getErrorClass("dep")} text-slate-700 font-medium bg-white`}
+                        readOnly
+                        value={toPrettyDate(formData.dep)}
+                      />
+                      <input
+                        type="datetime-local"
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                        value={formData.dep}
+                        onChange={(e) => {
+                          setFormData({ ...formData, dep: e.target.value });
+                          if (errors["dep"]) setErrors({ ...errors, dep: "" });
+                        }}
+                        onFocus={() => setActiveTooltip("dep")}
+                        onBlur={() => setActiveTooltip(null)}
+
+                        // For mobile/touch devices where focus might behave differently on opacity-0 inputs
+                        onClick={() => setActiveTooltip("dep")}
+                      />
                     </div>
-                    <input
-                      type="text"
-                      className="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-600 outline-none border-slate-200 text-slate-700 font-medium bg-white"
-                      readOnly
-                      value={toPrettyDate(formData.dep)}
-                    />
-                    <input
-                      type="datetime-local"
-                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
-                      value={formData.dep}
-                      onChange={(e) => setFormData({ ...formData, dep: e.target.value })}
-                    />
                   </div>
-                </div>
-                <div>
-                  <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
-                    Arrival
-                  </label>
-                  <div className="relative group text-left">
-                    <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                      <Calendar className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                  <div>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+                      Arrival <span className="text-red-500">*</span>
+                    </label>
+                    <div className="relative group text-left">
+                      <Tooltip field="arr" />
+                      <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                        <Calendar className="w-4 h-4 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                      </div>
+                      <input
+                        type="text"
+                        className={`w-full border rounded-lg p-2 text-sm outline-none focus:ring-2 ${getErrorClass("arr")} text-slate-700 font-medium bg-white`}
+                        readOnly
+                        value={toPrettyDate(formData.arr)}
+                      />
+                      <input
+                        type="datetime-local"
+                        className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
+                        value={formData.arr}
+                        onChange={(e) => {
+                          setFormData({ ...formData, arr: e.target.value });
+                          if (errors["arr"]) setErrors({ ...errors, arr: "" });
+                        }}
+                        onFocus={() => setActiveTooltip("arr")}
+                        onBlur={() => setActiveTooltip(null)}
+                        onClick={() => setActiveTooltip("arr")}
+                      />
                     </div>
-                    <input
-                      type="text"
-                      className="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-600 outline-none border-slate-200 text-slate-700 font-medium bg-white"
-                      readOnly
-                      value={toPrettyDate(formData.arr)}
-                    />
-                    <input
-                      type="datetime-local"
-                      className="absolute inset-0 opacity-0 w-full h-full cursor-pointer z-10"
-                      value={formData.arr}
-                      onChange={(e) => setFormData({ ...formData, arr: e.target.value })}
-                    />
                   </div>
                 </div>
               </div>
@@ -648,7 +730,7 @@ const FlightForm: React.FC<FlightFormProps> = ({
           )}
           <button
             onClick={handleSave}
-            className="flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-slate-700 active:scale-[0.98] transition-all"
+            className={`flex-1 bg-slate-800 text-white font-bold py-3 rounded-xl shadow-lg hover:bg-slate-700 active:scale-[0.98] transition-all ${shake ? "animate-shake bg-red-600 hover:bg-red-700 shadow-red-200" : ""}`}
           >
             Save Flight
           </button>

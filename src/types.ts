@@ -42,13 +42,13 @@ export interface FlightSegment {
   arr: string;
   status: string;
   ground?:
-  | {
-    hub: string;
-    duration: string;
-    mode: string;
-  }
-  | null
-  | undefined;
+    | {
+        hub: string;
+        duration: string;
+        mode: string;
+      }
+    | null
+    | undefined;
   depAirport?: string | undefined;
   arrAirport?: string | undefined;
   isPrimary?: boolean | undefined;
@@ -73,21 +73,47 @@ export interface RowData {
   callET: string;
   options: Option[];
 }
-
 export interface SearchLeg {
   carrierCodeIATA: string;
+  carrierCodeICAO: string;
+  airline: string;
   aircraftIdentification: {
     flightNumber: string;
+    airline: {
+      iata: string;
+      icao: string | null;
+    };
   };
-  departureAirportCode: string;
-  arrivalAirportCode: string;
-  departure: {
-    scheduledDate: string;
-    gate?: string;
-  };
-  arrival: {
-    scheduledDate: string;
-    gate?: string;
+  departure: FlightEvent;
+  arrival: FlightEvent;
+  elapsedTime: string;
+  postFlightLayover: string | null;
+  aircraft: string;
+  isCancelled: boolean;
+  operatedByCarrierCode: string;
+  operatedByCarrierName: string;
+  codeShares: CodeShare[];
+  scheduleKey: string;
+  lastUpdated: string;
+  lastStatus: string;
+  cacheExpiration: string;
+  statusFresh: boolean;
+}
+
+interface FlightEvent {
+  airportCode: string;
+  originalDate: string;
+  scheduledDate: string;
+  estimatedDate: string;
+  terminal: string;
+  gate?: string;
+}
+
+interface CodeShare {
+  flightNumber: string;
+  airline: {
+    iata: string;
+    icao: string | null;
   };
 }
 
