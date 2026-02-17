@@ -15,6 +15,35 @@ interface FlightOptionCardProps {
   onDrop: (e: React.DragEvent, index: number) => void;
 }
 
+const addDuration = (timeStr: string | undefined, durationHours: string | number | undefined) => {
+  if (!timeStr) return "N/A";
+  if (!durationHours) return timeStr;
+
+  const parts = timeStr.split(":");
+  if (parts.length < 2) return timeStr;
+
+  const h = Number(parts[0]);
+  const m = Number(parts[1]);
+
+  if (isNaN(h) || isNaN(m)) return timeStr;
+
+  const date = new Date();
+  date.setHours(h);
+  date.setMinutes(m);
+  date.setSeconds(0);
+  date.setMilliseconds(0);
+
+  const durationNum = Number(durationHours);
+  if (isNaN(durationNum)) return timeStr;
+
+  const addedTime = date.getTime() + durationNum * 60 * 60 * 1000;
+  const newDate = new Date(addedTime);
+
+  const newHours = String(newDate.getHours()).padStart(2, "0");
+  const newMinutes = String(newDate.getMinutes()).padStart(2, "0");
+  return `${newHours}:${newMinutes}`;
+};
+
 const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
   option,
   index,
@@ -29,15 +58,35 @@ const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
   const getPrimaryArr = (opt: Option) => {
     if (opt.type === "hub-strategy" && opt.outbound) {
       const p = opt.outbound.find((o) => o.isPrimary);
-      return p ? p.arr : "N/A";
+      if (p) {
+        return p.ground ? addDuration(p.arr, p.ground.duration) : p.arr;
+      }
+      return "N/A";
     }
     if (opt.segments && opt.segments.length > 0) {
       const s = opt.segments[opt.segments.length - 1];
-      return s ? s.arr : "N/A";
+      if (s) {
+        // Direct flights usually don't have ground transport at the end, but check just in case
+        return s.ground ? addDuration(s.arr, s.ground.duration) : s.arr;
+      }
+      return "N/A";
     }
     return "N/A";
   };
+
+  const getSecondaryArr = (opt: Option) => {
+    if (opt.type === "hub-strategy" && opt.outbound) {
+      const s = opt.outbound.find((o) => o.isSecondary);
+      if (s) {
+        return s.ground ? addDuration(s.arr, s.ground.duration) : s.arr;
+      }
+    }
+    return null;
+  };
+
   const primaryArr = getPrimaryArr(option);
+  const secondaryArr = getSecondaryArr(option);
+
   const inbounds =
     option.type === "hub-strategy"
       ? Array.isArray(option.inbound)
@@ -86,7 +135,7 @@ const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
               ))}
             </div>
             <div className="border-t border-dashed border-gray-200 w-full my-1"></div>
-            <div className="flex flex-col gap-2 pt-1 mb-2">
+            <div className="flex flex-wrap gap-2 pt-1 mb-2">
               {option.outbound?.map((f, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <FlightPill f={f} statusData={flightStatuses[f.flight]} />
@@ -95,7 +144,7 @@ const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
             </div>
           </div>
         ) : (
-          <div className="flex flex-wrap gap-2 items-center py-2 mb-2">
+          <div className="flex flex-wrap gap-2 items-center">
             {option.segments?.map((seg, idx) => (
               <React.Fragment key={idx}>
                 {idx > 0 && <ArrowRight size={10} className="text-gray-300" />}
@@ -112,10 +161,10 @@ const FlightOptionCard: React.FC<FlightOptionCardProps> = ({
           </div>
         )}
         <div className="absolute -bottom-3 right-4 bg-white border border-gray-200 shadow-sm rounded-full px-3 py-1 flex items-center gap-3 z-20">
-          <div className="flex items-baseline gap-1">
-            <span className="text-[9px] font-bold text-gray-400 uppercase tracking-tight">Pri:</span>
-            <span className="font-mono font-bold text-xs text-gray-900">{primaryArr}</span>
-          </div>
+          <span className="font-mono font-bold text-xs text-gray-900">
+            {primaryArr}
+            {secondaryArr ? `- ${secondaryArr}` : ``}
+          </span>
         </div>
       </div>
     </div>

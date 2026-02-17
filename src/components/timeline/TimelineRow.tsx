@@ -88,7 +88,7 @@ const TimelineRow: React.FC<TimelineRowProps> = ({
           </div>
         )}
       </div>
-      <div className={`flex-1 flex flex-wrap gap-4 content-start items-center`}>
+      <div className={`flex-1 flex flex-wrap gap-1 content-start items-center`}>
         {hasOptions ? (
           <>
             {row.options.map((opt, i) => (
@@ -122,10 +122,11 @@ const TimelineRow: React.FC<TimelineRowProps> = ({
         ) : (
           <div
             onClick={() => isEdit && onAddOption(row.key, row.rawDate)}
-            className={`w-full h-full sm:max-w-[calc(950px+1rem)] min-h-[60px] flex items-center justify-center border-2 border-dashed rounded-lg text-gray-400 text-sm font-medium transition-all ${isEdit
+            className={`w-full h-full sm:max-w-[calc(950px+1rem)] min-h-[60px] flex items-center justify-center border-2 border-dashed rounded-lg text-gray-400 text-sm font-medium transition-all ${
+              isEdit
                 ? "border-blue-200 bg-blue-50/30 cursor-pointer hover:bg-blue-50 hover:border-blue-400 hover:text-blue-600"
                 : "border-gray-100 bg-gray-50/50"
-              }`}
+            }`}
           >
             {isEdit ? (
               <span className="flex items-center gap-2">

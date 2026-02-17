@@ -32,10 +32,10 @@ const FlightPill: React.FC<FlightPillProps> = ({ f, statusData }) => {
 
   const statusDetails = statusData
     ? {
-        scheduledDate: statusData.departureTime?.scheduled || "",
-        ...(statusData.departureTime?.estimated ? { estimatedDate: statusData.departureTime.estimated } : {}),
-        ...(statusData.departureTime?.actual ? { actualDate: statusData.departureTime.actual } : {}),
-      }
+      scheduledDate: statusData.departureTime?.scheduled || "",
+      ...(statusData.departureTime?.estimated ? { estimatedDate: statusData.departureTime.estimated } : {}),
+      ...(statusData.departureTime?.actual ? { actualDate: statusData.departureTime.actual } : {}),
+    }
     : undefined;
 
   return (
@@ -66,8 +66,17 @@ const FlightPill: React.FC<FlightPillProps> = ({ f, statusData }) => {
         )}
       </div>
       {f.ground && (
-        <div className="flex items-center ml-1">
-          <ArrowRight size={10} className="text-gray-300 mr-1" />
+        <div className="flex items-center ml-1" style={{ position: "relative" }}>
+          <ArrowRight
+            size={10}
+            className="text-gray-300 mr-1"
+            style={{
+              position: "absolute",
+              zIndex: 50,
+              marginLeft: "-5px",
+              color: "#884b00",
+            }}
+          />
           <div
             className="flex items-center gap-1 bg-yellow-50 border border-yellow-200 px-1.5 py-0.5 rounded text-[9px] text-yellow-800 font-medium"
             title={`Commute in ${f.ground.hub}`}
